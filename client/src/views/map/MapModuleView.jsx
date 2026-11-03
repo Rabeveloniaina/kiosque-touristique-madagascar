@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  MapPin, QrCode, Compass, Star, ExternalLink, X, Navigation, 
+  MapPin, QrCode, Compass, Star, X, Navigation, 
   Clock, Sparkles, Palette, Mountain
 } from 'lucide-react';
 import { mockSites } from '../../data/mockData';
 import { translations } from '../../data/translations';
 import { api } from '../../services/api';
-import { getDirectionsUrl, getQrCodeImageUrl } from '../../utils/navigation';
+import { getQrCodeImageUrl } from '../../utils/navigation';
+import ItineraryPreviewModal from '../../components/ItineraryPreviewModal';
 
 export default function MapModuleView({ currentLang, onLogItemClick, kioskConfig }) {
   const [places, setPlaces] = useState([]);
@@ -14,6 +15,7 @@ export default function MapModuleView({ currentLang, onLogItemClick, kioskConfig
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showItineraryModal, setShowItineraryModal] = useState(false);
   const t = translations[currentLang] || translations.fr;
   const cityName = kioskConfig?.active_city || 'Fianarantsoa';
 
@@ -288,15 +290,13 @@ export default function MapModuleView({ currentLang, onLogItemClick, kioskConfig
                   <span>Envoyer itinéraire sur mobile (QR Code)</span>
                 </button>
 
-                <a
-                  href={getDirectionsUrl(selectedSite.lat, selectedSite.lng, selectedSite.name)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="py-4 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm uppercase tracking-wider border border-slate-700 flex items-center justify-center space-x-2 active:scale-95 transition-transform"
+                <button
+                  onClick={() => setShowItineraryModal(true)}
+                  className="py-4 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-sm uppercase tracking-wider border border-amber-500/30 flex items-center justify-center space-x-2 active:scale-95 transition-transform shadow-lg cursor-pointer"
                 >
-                  <ExternalLink className="w-5 h-5 text-amber-400" />
-                  <span>Lancer l'itinéraire Google Maps</span>
-                </a>
+                  <Navigation className="w-5 h-5 text-amber-400" />
+                  <span>Aperçu de l'itinéraire sur l'écran</span>
+                </button>
               </div>
             </div>
           ) : (
@@ -349,6 +349,15 @@ export default function MapModuleView({ currentLang, onLogItemClick, kioskConfig
           </div>
         </div>
       )}
+
+      {/* In-App Interactive Itinerary Preview Modal (ZERO EXTERNAL TABS) */}
+      <ItineraryPreviewModal
+        isOpen={showItineraryModal}
+        onClose={() => setShowItineraryModal(false)}
+        place={selectedSite}
+        kioskConfig={kioskConfig}
+        currentLang={currentLang}
+      />
     </div>
   );
 }

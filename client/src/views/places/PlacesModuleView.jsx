@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   UtensilsCrossed, Bed, Compass, Car, Phone, Tag,
-  MapPin, Star, ExternalLink, QrCode, Clock, RefreshCw,
+  MapPin, Star, QrCode, Clock, RefreshCw, Navigation,
   Wifi, WifiOff, Store, Landmark, Building2
 } from 'lucide-react';
 import { translations } from '../../data/translations';
 import { api } from '../../services/api';
 import { analytics } from '../../services/analytics';
-import { getDirectionsUrl, getQrCodeImageUrl } from '../../utils/navigation';
+import { getQrCodeImageUrl } from '../../utils/navigation';
+import ItineraryPreviewModal from '../../components/ItineraryPreviewModal';
 
 // Données de secours hors-ligne
 const FALLBACK_PLACES = [
@@ -86,6 +87,7 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [expandedQr, setExpandedQr] = useState(null);
+  const [selectedItineraryPlace, setSelectedItineraryPlace] = useState(null);
   const t = translations[currentLang] || translations.fr;
   const cityName = kioskConfig?.active_city || 'Fianarantsoa';
 
@@ -319,16 +321,16 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
                   {/* Navigation Actions */}
                   {hasCoords && (
                     <div className="mt-4 flex items-center space-x-2">
-                      <a
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => analytics.trackInteraction('places', `maps:${place.name}`)}
-                        className="flex-1 flex items-center justify-center space-x-2 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold transition active:scale-95"
+                      <button
+                        onClick={() => {
+                          setSelectedItineraryPlace(place);
+                          analytics.trackInteraction('places', `itinerary_preview:${place.name}`);
+                        }}
+                        className="flex-1 flex items-center justify-center space-x-2 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shadow-md"
                       >
-                        <ExternalLink className="w-4 h-4" />
-                        <span>Itinéraire Google Maps</span>
-                      </a>
+                        <Navigation className="w-4 h-4 text-amber-400" />
+                        <span>Voir l'itinéraire</span>
+                      </button>
 
                       <button
                         onClick={() => handleQrClick(placeKey, place.name)}
@@ -365,6 +367,15 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
           })}
         </div>
       </div>
+
+      {/* In-App Interactive Itinerary Preview Modal (ZERO EXTERNAL TABS) */}
+      <ItineraryPreviewModal
+        isOpen={!!selectedItineraryPlace}
+        onClose={() => setSelectedItineraryPlace(null)}
+        place={selectedItineraryPlace}
+        kioskConfig={kioskConfig}
+        currentLang={currentLang}
+      />
     </div>
   );
 }

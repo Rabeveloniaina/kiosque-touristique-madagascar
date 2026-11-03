@@ -14,8 +14,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const [activeTab, setActiveTab] = useState('ads');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [usernameInput, setUsernameInput] = useState('admin');
-  const [passwordInput, setPasswordInput] = useState('admin123');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
 
   // Map Picker State
@@ -134,6 +134,10 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       if (api.isAuthenticated()) {
         setIsAuthenticated(true);
         loadAllData();
+      } else {
+        setUsernameInput('');
+        setPasswordInput('');
+        setAuthError('');
       }
     }
   }, [isOpen]);
@@ -230,6 +234,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const handleLogout = () => {
     api.logout();
     setIsAuthenticated(false);
+    setUsernameInput('');
+    setPasswordInput('');
+    setAuthError('');
   };
 
   // --- MAP PICKER HANDLERS ---
@@ -664,12 +671,13 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
               Connectez-vous pour ajouter des publicités, modifier les itinéraires, les événements et gérer les comptes.
             </p>
 
-            <form onSubmit={handleLogin} className="mt-6 w-full max-w-xs space-y-3">
+            <form onSubmit={handleLogin} className="mt-6 w-full max-w-xs space-y-3" autoComplete="off">
               <input
                 type="text"
                 value={usernameInput}
                 onChange={(e) => setUsernameInput(e.target.value)}
                 placeholder="Nom d'utilisateur"
+                autoComplete="off"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400"
               />
               <input
@@ -677,6 +685,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 placeholder="Mot de passe"
+                autoComplete="new-password"
                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400"
               />
               {authError && <div className="text-rose-400 text-xs font-semibold">{authError}</div>}

@@ -3,7 +3,7 @@ import {
   X, Lock, Megaphone, BarChart3, Settings, Plus, Trash2, Power, 
   Clock, Globe2, Users, Check, AlertCircle, Upload, Link as LinkIcon, 
   MapPin, Calendar, Handshake, ShieldAlert, Edit, Save, UserPlus, KeyRound,
-  Download, Sparkles, Navigation, Compass, Layers, RefreshCw
+  Download, Sparkles, Navigation, Compass, Layers, RefreshCw, Crosshair, Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { analytics } from '../../services/analytics';
@@ -170,6 +170,41 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     }
   };
 
+  const [isCalibratingGps, setIsCalibratingGps] = useState(false);
+
+  const handleCalibrateDeviceGps = () => {
+    if (!navigator.geolocation) {
+      setSwitchErrorMsg("La géolocalisation n'est pas disponible sur ce navigateur.");
+      return;
+    }
+    setIsCalibratingGps(true);
+    setSwitchErrorMsg('');
+    setSwitchSuccessMsg('');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = Number(pos.coords.latitude.toFixed(6));
+          const lng = Number(pos.coords.longitude.toFixed(6));
+          const res = await api.calibrateDeviceLocation(lat, lng);
+          setKioskConfigData(res.config);
+          setAvailableCities(res.availableCities || []);
+          setSwitchSuccessMsg(res.message || `Position du kiosque calibrée avec succès : [${lat}, ${lng}]`);
+          if (onCityChanged) onCityChanged(res.config);
+          await loadAllData();
+        } catch (err) {
+          setSwitchErrorMsg(err.message || 'Erreur lors de la calibration GPS.');
+        } finally {
+          setIsCalibratingGps(false);
+        }
+      },
+      (err) => {
+        setIsCalibratingGps(false);
+        setSwitchErrorMsg("Impossible d'obtenir la position GPS de votre PC (" + err.message + "). Veuillez autoriser l'accès à votre position dans le navigateur.");
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  };
+
   const handleSearchCity = async (e) => {
     if (e) e.preventDefault();
     if (!citySearchQuery.trim()) return;
@@ -254,6 +289,14 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       setPartnerForm((prev) => ({ ...prev, lat, lng }));
     } else if (mapPickerTarget === 'emergency') {
       setEmergencyForm((prev) => ({ ...prev, lat, lng }));
+    } else if (mapPickerTarget === 'kiosk') {
+      api.setKioskCoordinates({ lat, lng }).then((res) => {
+        setKioskConfigData(res.config);
+        setSwitchSuccessMsg(`Emplacement GPS du kiosque mis à jour : [${lat}, ${lng}]`);
+        if (onCityChanged) onCityChanged(res.config);
+      }).catch((err) => {
+        setSwitchErrorMsg(err.message || 'Erreur mise à jour coordonnées');
+      });
     }
   };
 
@@ -1841,6 +1884,34 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         <p className="text-slate-400 text-sm mt-1">
                           Région : <span className="text-slate-200 font-bold">{kioskConfigData?.active_region || 'Haute Matsiatra'}</span> • Coordonnées GPS : <span className="font-mono text-amber-300">{kioskConfigData?.active_lat}, {kioskConfigData?.active_lng}</span>
                         </p>
+
+                        {/* Boutons de calibration de la position du PC / Borne */}
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <button
+                            type="button"
+                            onClick={handleCalibrateDeviceGps}
+                            disabled={isCalibratingGps}
+                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition active:scale-95 shadow-md border border-emerald-400/40"
+                            title="Utiliser la puce GPS / géolocalisation de ce PC comme position du kiosque"
+                          >
+                            {isCalibratingGps ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Crosshair className="w-3.5 h-3.5" />
+                            )}
+                            <span>{isCalibratingGps ? 'Calibration GPS…' : 'Calibrer sur la position GPS de ce PC'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenMapPicker('kiosk')}
+                            className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-xl text-xs font-bold transition active:scale-95 border border-slate-700 hover:border-amber-500/40"
+                            title="Choisir manuellement le point de départ du kiosque sur la carte"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Ajuster sur la carte</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Données actives en ce moment pour cette ville */}

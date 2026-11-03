@@ -4,22 +4,73 @@ const https = require('https');
 const db = require('../db/database');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 function queryNominatim(queryStr) {
   return new Promise((resolve) => {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryStr)}&countrycodes=mg&format=json&addressdetails=1&extratags=1&limit=25`;
-    const request = https.get(url, { headers: { 'User-Agent': 'MadagascarKioskManager/2.0 (contact@eni.mg)' } }, (response) => {
+    const request = https.get(url, { 
+      headers: { 
+        'User-Agent': 'MadagascarTourismKiosk/3.0 (contact@eni.mg)',
+        'Accept': 'application/json'
+      },
+      timeout: 8000
+    }, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        return resolve([]);
+      }
       const chunks = [];
       response.on('data', chunk => chunks.push(chunk));
       response.on('end', () => {
         try {
           const raw = Buffer.concat(chunks).toString('utf8');
-          resolve(JSON.parse(raw));
+          const data = JSON.parse(raw);
+          resolve(Array.isArray(data) ? data : []);
         } catch {
           resolve([]);
         }
       });
     });
+    request.on('timeout', () => {
+      request.destroy();
+      resolve([]);
+    });
     request.on('error', () => resolve([]));
+  });
+}
+
+function reverseNominatim(lat, lng) {
+  return new Promise((resolve) => {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json&addressdetails=1`;
+    const request = https.get(url, {
+      headers: {
+        'User-Agent': 'MadagascarTourismKiosk/3.0 (contact@eni.mg)',
+        'Accept': 'application/json'
+      },
+      timeout: 8000
+    }, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        return resolve(null);
+      }
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => {
+        try {
+          const raw = Buffer.concat(chunks).toString('utf8');
+          const data = JSON.parse(raw);
+          resolve(data && typeof data === 'object' ? data : null);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    request.on('timeout', () => {
+      request.destroy();
+      resolve(null);
+    });
+    request.on('error', () => resolve(null));
   });
 }
 
@@ -192,37 +243,48 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
     if (existingPlaces === 0 || existingSites < 5) {
       console.log(`[KIOSK CITY SWITCH] Importing places & tourist sites for city: ${city} (${parsedLat}, ${parsedLng})...`);
 
-      const [
-        osmHotels,
-        osmRestos,
-        osmGares,
-        osmPonts,
-        osmCanaux,
-        osmPangalanes,
-        osmLacs,
-        osmThermes,
-        osmParcs,
-        osmCathedrales,
-        osmEglises,
-        osmMonuments,
-        osmMarches,
-        osmAeroPort
-      ] = await Promise.all([
-        existingPlaces === 0 ? queryNominatim(`hotel in ${city}`) : Promise.resolve([]),
-        existingPlaces === 0 ? queryNominatim(`restaurant in ${city}`) : Promise.resolve([]),
-        queryNominatim(`gare ${city}`),
-        queryNominatim(`pont ${city}`),
-        queryNominatim(`canal ${city}`),
-        queryNominatim(`Pangalanes ${city}`),
-        queryNominatim(`lac ${city}`),
-        queryNominatim(`thermes ${city}`),
-        queryNominatim(`parc ${city}`),
-        queryNominatim(`cathedrale ${city}`),
-        queryNominatim(`eglise ${city}`),
-        queryNominatim(`monument ${city}`),
-        queryNominatim(`marche ${city}`),
-        queryNominatim(`aeroport ${city}`)
-      ]);
+      const queries = [
+        existingPlaces === 0 ? { key: 'hotels', q: `hotel in ${city}` } : null,
+        existingPlaces === 0 ? { key: 'restos', q: `restaurant in ${city}` } : null,
+        { key: 'gares', q: `gare ${city}` },
+        { key: 'ponts', q: `pont ${city}` },
+        { key: 'canaux', q: `canal ${city}` },
+        { key: 'pangalanes', q: `Pangalanes ${city}` },
+        { key: 'lacs', q: `lac ${city}` },
+        { key: 'thermes', q: `thermes ${city}` },
+        { key: 'parcs', q: `parc ${city}` },
+        { key: 'cathedrales', q: `cathedrale ${city}` },
+        { key: 'eglises', q: `eglise ${city}` },
+        { key: 'monuments', q: `monument ${city}` },
+        { key: 'marches', q: `marche ${city}` },
+        { key: 'aeroport', q: `aeroport ${city}` }
+      ].filter(Boolean);
+
+      const resultsMap = {};
+      for (const item of queries) {
+        try {
+          const res = await queryNominatim(item.q);
+          resultsMap[item.key] = Array.isArray(res) ? res : [];
+        } catch {
+          resultsMap[item.key] = [];
+        }
+        await sleep(100); // 100ms anti-429 throttle
+      }
+
+      const osmHotels = resultsMap.hotels || [];
+      const osmRestos = resultsMap.restos || [];
+      const osmGares = resultsMap.gares || [];
+      const osmPonts = resultsMap.ponts || [];
+      const osmCanaux = resultsMap.canaux || [];
+      const osmPangalanes = resultsMap.pangalanes || [];
+      const osmLacs = resultsMap.lacs || [];
+      const osmThermes = resultsMap.thermes || [];
+      const osmParcs = resultsMap.parcs || [];
+      const osmCathedrales = resultsMap.cathedrales || [];
+      const osmEglises = resultsMap.eglises || [];
+      const osmMonuments = resultsMap.monuments || [];
+      const osmMarches = resultsMap.marches || [];
+      const osmAeroPort = resultsMap.aeroport || [];
 
       const insertPlace = db.prepare(`
         INSERT INTO places (
@@ -476,14 +538,32 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
     if (existingEmergency === 0) {
       console.log(`[KIOSK CITY SWITCH] Auto-importing emergency services for ${city}...`);
 
-      const [osmHospitals, osmPolice, osmGendarme, osmFirestations, osmPharmacies, osmClinics] = await Promise.all([
-        queryNominatim(`hospital ${city}`),
-        queryNominatim(`police commissariat ${city}`),
-        queryNominatim(`gendarmerie ${city}`),
-        queryNominatim(`pompiers feu ${city}`),
-        queryNominatim(`pharmacie ${city}`),
-        queryNominatim(`clinique ${city}`)
-      ]);
+      const emergencySearchConfigs = [
+        { key: 'hospitals', q: `hospital ${city}` },
+        { key: 'police',    q: `police commissariat ${city}` },
+        { key: 'gendarme',  q: `gendarmerie ${city}` },
+        { key: 'fire',      q: `pompiers feu ${city}` },
+        { key: 'pharmacy',  q: `pharmacie ${city}` },
+        { key: 'clinic',    q: `clinique ${city}` }
+      ];
+
+      const emMap = {};
+      for (const item of emergencySearchConfigs) {
+        try {
+          const res = await queryNominatim(item.q);
+          emMap[item.key] = Array.isArray(res) ? res : [];
+        } catch {
+          emMap[item.key] = [];
+        }
+        await sleep(100);
+      }
+
+      const osmHospitals = emMap.hospitals || [];
+      const osmPolice = emMap.police || [];
+      const osmGendarme = emMap.gendarme || [];
+      const osmFirestations = emMap.fire || [];
+      const osmPharmacies = emMap.pharmacy || [];
+      const osmClinics = emMap.clinic || [];
 
       const insertEmergency = db.prepare(`
         INSERT OR IGNORE INTO emergency_contacts (name, number, address, icon, lat, lng, city, display_order)
@@ -597,6 +677,70 @@ router.post('/delete-city', authMiddleware, (req, res) => {
     });
   } catch (err) {
     res.status(400).json({ error: err.message || 'Erreur lors de la suppression de la ville.' });
+  }
+});
+
+// 5. PUBLIC & ADMIN: Calibrate exact GPS position of this kiosk device (PC / Borne physique)
+router.post('/calibrate-device', async (req, res) => {
+  const { lat, lng } = req.body;
+  const parsedLat = parseFloat(lat);
+  const parsedLng = parseFloat(lng);
+  if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    return res.status(400).json({ error: 'Coordonnées GPS invalides.' });
+  }
+
+  try {
+    const rev = await reverseNominatim(parsedLat, parsedLng);
+    const addr = rev?.address || {};
+    const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || 'Mon Emplacement';
+    const region = addr.state_district || addr.region || addr.state || 'Madagascar';
+
+    const updatedConfig = db.setActiveCityConfig({
+      city: city,
+      region: region,
+      lat: parsedLat,
+      lng: parsedLng,
+      country: addr.country || 'Madagascar'
+    });
+
+    const availableCities = db.getAvailableCities();
+    res.json({
+      success: true,
+      config: updatedConfig,
+      availableCities,
+      message: `Position GPS du kiosque calibrée avec succès sur votre appareil (${city}, ${parsedLat.toFixed(5)}, ${parsedLng.toFixed(5)}).`
+    });
+  } catch (err) {
+    console.error('Calibrate device error:', err);
+    res.status(500).json({ error: 'Erreur calibration position GPS.' });
+  }
+});
+
+// 6. Set manual GPS coordinates directly for the active kiosk
+router.post('/set-coordinates', authMiddleware, (req, res) => {
+  const { lat, lng, city, region } = req.body;
+  const parsedLat = parseFloat(lat);
+  const parsedLng = parseFloat(lng);
+  if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    return res.status(400).json({ error: 'Coordonnées GPS invalides.' });
+  }
+
+  try {
+    const currentCfg = db.getActiveCityConfig();
+    const updatedConfig = db.setActiveCityConfig({
+      city: city || currentCfg.active_city,
+      region: region || currentCfg.active_region,
+      lat: parsedLat,
+      lng: parsedLng,
+      country: currentCfg.active_country || 'Madagascar'
+    });
+    res.json({
+      success: true,
+      config: updatedConfig,
+      message: `Nouvel emplacement GPS enregistré : [${parsedLat}, ${parsedLng}]`
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur mise à jour coordonnées GPS.' });
   }
 });
 

@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
   X, Navigation, MapPin, Compass, Clock, Route, 
-  Sparkles, QrCode, Phone, Check, ChevronRight, AlertCircle, Loader2
+  Sparkles, QrCode, Phone, Check, ChevronRight, AlertCircle, Loader2, Crosshair
 } from 'lucide-react';
 import { getQrCodeImageUrl } from '../utils/navigation';
 
@@ -101,16 +101,23 @@ export default function ItineraryPreviewModal({
   const [routeDuration, setRouteDuration] = useState(null);   // seconds (number)
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(false);
+  const [customStart, setCustomStart] = useState(null); // [lat, lng] from device GPS
+  const [isLocatingPc, setIsLocatingPc] = useState(false);
+  const [locatingError, setLocatingError] = useState('');
   const abortRef = useRef(null);
 
   const cityName = kioskConfig?.active_city || place?.city || 'Madagascar';
   const kioskLat = parseFloat(kioskConfig?.active_lat) || -21.4536;
   const kioskLng = parseFloat(kioskConfig?.active_lng) || 47.0858;
 
-  const destLat = parseFloat(place?.lat) || kioskLat;
-  const destLng = parseFloat(place?.lng) || kioskLng;
+  // Actual starting point coordinates: custom PC GPS if enabled, otherwise active Kiosk position
+  const startLat = customStart ? customStart[0] : kioskLat;
+  const startLng = customStart ? customStart[1] : kioskLng;
 
-  const hasCoords = Boolean(place && !isNaN(destLat) && !isNaN(destLng) && (destLat !== kioskLat || destLng !== kioskLng));
+  const destLat = parseFloat(place?.lat) || startLat;
+  const destLng = parseFloat(place?.lng) || startLng;
+
+  const hasCoords = Boolean(place && !isNaN(destLat) && !isNaN(destLng) && (destLat !== startLat || destLng !== startLng));
 
   // ── Fetch OSRM route whenever place/kiosk changes (MUST BE UNCONDITIONAL HOOK) ──
   useEffect(() => {
@@ -134,7 +141,7 @@ export default function ItineraryPreviewModal({
     setRouteDuration(null);
 
     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/` +
-      `${kioskLng},${kioskLat};${destLng},${destLat}` +
+      `${startLng},${startLat};${destLng},${destLat}` +
       `?overview=full&geometries=geojson`;
 
     fetch(osrmUrl, { signal: controller.signal })
@@ -149,7 +156,7 @@ export default function ItineraryPreviewModal({
           setRouteDuration(route.duration);   // seconds
         } else {
           // No route found — fallback to straight line
-          setRouteCoords([[kioskLat, kioskLng], [destLat, destLng]]);
+          setRouteCoords([[startLat, startLng], [destLat, destLng]]);
           setRouteError(true);
         }
         setRouteLoading(false);
@@ -157,13 +164,34 @@ export default function ItineraryPreviewModal({
       .catch(err => {
         if (err.name === 'AbortError') return;
         // Network error — fallback to straight line
-        setRouteCoords([[kioskLat, kioskLng], [destLat, destLng]]);
+        setRouteCoords([[startLat, startLng], [destLat, destLng]]);
         setRouteError(true);
         setRouteLoading(false);
       });
 
     return () => controller.abort();
-  }, [isOpen, place, kioskLat, kioskLng, destLat, destLng, hasCoords]);
+  }, [isOpen, place, startLat, startLng, destLat, destLng, hasCoords]);
+
+  // Handler: detect real PC GPS position
+  const handleDetectDeviceGps = () => {
+    if (!navigator.geolocation) {
+      setLocatingError("La géolocalisation n'est pas supportée sur ce navigateur.");
+      return;
+    }
+    setIsLocatingPc(true);
+    setLocatingError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocatingPc(false);
+        setCustomStart([pos.coords.latitude, pos.coords.longitude]);
+      },
+      (err) => {
+        setIsLocatingPc(false);
+        setLocatingError("Impossible d'obtenir la position GPS du PC (" + err.message + ").");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   // Strict Hooks compliance: DO NOT RETURN NULL BEFORE HOOKS
   if (!isOpen || !place) return null;
@@ -229,7 +257,7 @@ export default function ItineraryPreviewModal({
           <div className="lg:col-span-7 h-64 sm:h-80 lg:h-auto min-h-[260px] relative bg-slate-950 border-b lg:border-b-0 lg:border-r border-slate-800">
             {hasCoords ? (
               <MapContainer
-                center={[(kioskLat + destLat) / 2, (kioskLng + destLng) / 2]}
+                center={[(startLat + destLat) / 2, (startLng + destLng) / 2]}
                 zoom={13}
                 scrollWheelZoom={false}
                 touchZoom={true}
@@ -244,11 +272,11 @@ export default function ItineraryPreviewModal({
                 {/* Auto-fit bounds once route is loaded */}
                 {routeCoords.length >= 2 && <FitBounds coords={routeCoords} />}
 
-                {/* Kiosk Marker */}
-                <Marker position={[kioskLat, kioskLng]} icon={kioskPinIcon}>
+                {/* Start Marker (Kiosk or custom PC GPS) */}
+                <Marker position={[startLat, startLng]} icon={kioskPinIcon}>
                   <Popup>
                     <div className="text-slate-900 font-bold text-xs p-1">
-                      📍 <b>Kiosque Touristique</b><br />
+                      📍 <b>{customStart ? 'Ce PC (Position GPS)' : 'Kiosque Touristique'}</b><br />
                       Point de départ ({cityName})
                     </div>
                   </Popup>
@@ -345,9 +373,54 @@ export default function ItineraryPreviewModal({
                   <div className="w-6 h-6 rounded-full bg-blue-600/30 border border-blue-400/50 text-blue-300 font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                     1
                   </div>
-                  <div>
-                    <span className="font-bold text-white block">Départ : Kiosque ({cityName})</span>
-                    <span className="text-slate-400 text-[11px]">Position actuelle sur la borne tactile.</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white block">
+                        Départ : {customStart ? 'Ce PC (Position GPS)' : `Kiosque (${cityName})`}
+                      </span>
+                      {customStart && (
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                          GPS Actif
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-slate-400 text-[11px] block">
+                      {customStart
+                        ? `Coordonnées GPS de cet appareil : ${startLat.toFixed(4)}, ${startLng.toFixed(4)}`
+                        : 'Position officielle de la borne tactile.'}
+                    </span>
+
+                    {/* Button to toggle real PC GPS */}
+                    <div className="mt-1">
+                      {!customStart ? (
+                        <button
+                          type="button"
+                          onClick={handleDetectDeviceGps}
+                          disabled={isLocatingPc}
+                          className="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-400/40 rounded-lg text-[10px] font-bold active:scale-95 transition"
+                          title="Calculer l'itinéraire directement depuis l'emplacement exact de ce PC"
+                        >
+                          {isLocatingPc ? (
+                            <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                          ) : (
+                            <Crosshair className="w-3 h-3 text-amber-400" />
+                          )}
+                          <span>{isLocatingPc ? 'Localisation du PC…' : 'Partir depuis la position exacte de ce PC'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCustomStart(null)}
+                          className="inline-flex items-center space-x-1 px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-bold border border-slate-700 active:scale-95 transition"
+                        >
+                          <span>Revenir au point de départ Kiosque</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {locatingError && (
+                      <span className="text-rose-400 text-[10px] block mt-1">{locatingError}</span>
+                    )}
                   </div>
                 </div>
 

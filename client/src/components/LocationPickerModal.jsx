@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Check, X, Compass } from 'lucide-react';
+import { MapPin, Check, X, Compass, Crosshair, Loader2 } from 'lucide-react';
 
 // Custom Map Marker Icon using HTML/CSS (clean, high contrast, no broken PNG paths)
 const customPinIcon = L.divIcon({
@@ -42,6 +42,8 @@ export default function LocationPickerModal({ isOpen, onClose, initialLat, initi
     initialLat || -21.4536,
     initialLng || 47.0858
   ]);
+  const [isLocating, setIsLocating] = useState(false);
+  const [geoError, setGeoError] = useState('');
 
   useEffect(() => {
     if (initialLat && initialLng) {
@@ -50,6 +52,28 @@ export default function LocationPickerModal({ isOpen, onClose, initialLat, initi
   }, [initialLat, initialLng]);
 
   if (!isOpen) return null;
+
+  const handleDetectDeviceGps = () => {
+    if (!navigator.geolocation) {
+      setGeoError('La géolocalisation n\'est pas supportée par votre navigateur.');
+      return;
+    }
+    setIsLocating(true);
+    setGeoError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocating(false);
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+        setPosition([lat, lng]);
+      },
+      (err) => {
+        setIsLocating(false);
+        setGeoError('Impossible de récupérer la position GPS du PC (' + err.message + ').');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const presets = [
     { name: 'Centre-Ville (Gare FCE)', lat: -21.4589, lng: 47.0833 },
@@ -93,7 +117,23 @@ export default function LocationPickerModal({ isOpen, onClose, initialLat, initi
         </div>
 
         {/* Quick Presets Bar */}
-        <div className="px-6 py-2.5 bg-slate-950/70 border-b border-slate-800 flex space-x-2 overflow-x-auto scrollbar-none text-xs">
+        <div className="px-6 py-2.5 bg-slate-950/70 border-b border-slate-800 flex items-center space-x-2 overflow-x-auto scrollbar-none text-xs">
+          <button
+            type="button"
+            onClick={handleDetectDeviceGps}
+            disabled={isLocating}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg whitespace-nowrap active:scale-95 transition shadow-md border border-emerald-400/50"
+            title="Localiser automatiquement mon PC / borne actuelle"
+          >
+            {isLocating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Crosshair className="w-3.5 h-3.5" />
+            )}
+            <span>{isLocating ? 'Détection GPS en cours…' : 'Ma position GPS (Ce PC)'}</span>
+          </button>
+
+          <span className="text-slate-600">|</span>
           <span className="text-slate-400 font-bold self-center whitespace-nowrap">Repères rapides :</span>
           {presets.map((preset) => (
             <button
@@ -106,6 +146,15 @@ export default function LocationPickerModal({ isOpen, onClose, initialLat, initi
             </button>
           ))}
         </div>
+
+        {geoError && (
+          <div className="px-6 py-1.5 bg-rose-950/80 border-b border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+            <span>{geoError}</span>
+            <button onClick={() => setGeoError('')} className="text-rose-400 hover:text-white">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
 
         {/* Interactive Leaflet Map */}
         <div className="flex-1 relative bg-slate-950">

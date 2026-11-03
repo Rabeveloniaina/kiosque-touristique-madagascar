@@ -400,5 +400,27 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erreur suppression de la ville.');
     return data;
+  },
+
+  async calibrateDeviceLocation(lat, lng) {
+    const res = await fetch(`${API_BASE_URL}/config/calibrate-device`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lng })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur calibration position GPS.');
+    return data;
+  },
+
+  async setKioskCoordinates(coords) {
+    const res = await fetch(`${API_BASE_URL}/config/set-coordinates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(coords)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur enregistrement coordonnées.');
+    return data;
   }
 };

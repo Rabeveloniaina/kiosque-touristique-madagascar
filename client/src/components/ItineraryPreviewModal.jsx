@@ -103,30 +103,24 @@ export default function ItineraryPreviewModal({
   const [routeError, setRouteError] = useState(false);
   const abortRef = useRef(null);
 
-  if (!isOpen || !place) return null;
-
-  const cityName = kioskConfig?.active_city || place.city || 'Madagascar';
+  const cityName = kioskConfig?.active_city || place?.city || 'Madagascar';
   const kioskLat = parseFloat(kioskConfig?.active_lat) || -21.4536;
   const kioskLng = parseFloat(kioskConfig?.active_lng) || 47.0858;
 
-  const destLat = parseFloat(place.lat) || kioskLat;
-  const destLng = parseFloat(place.lng) || kioskLng;
+  const destLat = parseFloat(place?.lat) || kioskLat;
+  const destLng = parseFloat(place?.lng) || kioskLng;
 
-  const hasCoords = !isNaN(destLat) && !isNaN(destLng) && (destLat !== kioskLat || destLng !== kioskLng);
+  const hasCoords = Boolean(place && !isNaN(destLat) && !isNaN(destLng) && (destLat !== kioskLat || destLng !== kioskLng));
 
-  const qrImageUrl = hasCoords ? getQrCodeImageUrl(destLat, destLng, place.name) : null;
-
-  const placeName = place.name || 'Lieu';
-  // Fallback values from DB (overridden by OSRM when loaded)
-  const fallbackDistance = place.distance_km || null;
-  const fallbackDuration = place.travel_time || null;
-  const itinerarySteps = place.itinerary_steps || 
-    `Depuis le kiosque de ${cityName}, suivre l'axe principal en direction de ${placeName}. Trajet accessible à pied, en pousse-pousse ou taxi-ville.`;
-
-  // ── Fetch OSRM route whenever place/kiosk changes ──────────────────────────
+  // ── Fetch OSRM route whenever place/kiosk changes (MUST BE UNCONDITIONAL HOOK) ──
   useEffect(() => {
-    if (!isOpen) return;
-    if (!hasCoords) return;
+    if (!isOpen || !place || !hasCoords) {
+      setRouteCoords([]);
+      setRouteDistance(null);
+      setRouteDuration(null);
+      setRouteLoading(false);
+      return;
+    }
 
     // Cancel any pending request
     if (abortRef.current) abortRef.current.abort();
@@ -169,7 +163,17 @@ export default function ItineraryPreviewModal({
       });
 
     return () => controller.abort();
-  }, [isOpen, kioskLat, kioskLng, destLat, destLng, hasCoords]);
+  }, [isOpen, place, kioskLat, kioskLng, destLat, destLng, hasCoords]);
+
+  // Strict Hooks compliance: DO NOT RETURN NULL BEFORE HOOKS
+  if (!isOpen || !place) return null;
+
+  const qrImageUrl = hasCoords ? getQrCodeImageUrl(destLat, destLng, place.name) : null;
+  const placeName = place.name || 'Lieu';
+  const fallbackDistance = place.distance_km || null;
+  const fallbackDuration = place.travel_time || null;
+  const itinerarySteps = place.itinerary_steps || 
+    `Depuis le kiosque de ${cityName}, suivre l'axe principal en direction de ${placeName}. Trajet accessible à pied, en pousse-pousse ou taxi-ville.`;
 
   // Display values: prefer OSRM, fallback to DB, then generic
   const displayDistance = routeDistance

@@ -4,8 +4,14 @@ const db = require('../db/database');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 
 function fixUtf8(str) {
-  if (!str) return '';
-  try { return Buffer.from(str, 'latin1').toString('utf8'); } catch { return str; }
+  if (!str || typeof str !== 'string') return str || '';
+  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
+    try {
+      const decoded = Buffer.from(str, 'latin1').toString('utf8');
+      if (!decoded.includes('\uFFFD')) return decoded;
+    } catch {}
+  }
+  return str;
 }
 
 // 1. PUBLIC: Get emergency numbers for active city (or national)

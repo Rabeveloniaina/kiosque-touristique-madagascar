@@ -17,8 +17,15 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 function fixUtf8(str) {
-  if (!str) return '';
-  try { return Buffer.from(str, 'latin1').toString('utf8'); } catch { return str; }
+  if (!str || typeof str !== 'string') return str || '';
+  // Only convert if it looks like UTF-8 bytes wrongly interpreted as latin1 (mojibake)
+  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
+    try {
+      const decoded = Buffer.from(str, 'latin1').toString('utf8');
+      if (!decoded.includes('\uFFFD')) return decoded;
+    } catch {}
+  }
+  return str;
 }
 
 // 1. PUBLIC: Get places with scope filtering ('sites' vs 'hospitality') or specific category for active city
@@ -58,10 +65,11 @@ router.post('/import-osm', authMiddleware, async (req, res) => {
     return new Promise((resolve) => {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryStr)}&countrycodes=mg&format=json&addressdetails=1&extratags=1&limit=25`;
       const request = https.get(url, { headers: { 'User-Agent': 'FianarKioskApp/1.0 (contact@eni.mg)' } }, (response) => {
-        let raw = '';
-        response.on('data', chunk => raw += chunk);
+        const chunks = [];
+        response.on('data', chunk => chunks.push(chunk));
         response.on('end', () => {
           try {
+            const raw = Buffer.concat(chunks).toString('utf8');
             resolve(JSON.parse(raw));
           } catch {
             resolve([]);

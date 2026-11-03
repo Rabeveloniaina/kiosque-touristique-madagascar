@@ -8,10 +8,11 @@ function queryNominatim(queryStr) {
   return new Promise((resolve) => {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryStr)}&countrycodes=mg&format=json&addressdetails=1&extratags=1&limit=25`;
     const request = https.get(url, { headers: { 'User-Agent': 'MadagascarKioskManager/2.0 (contact@eni.mg)' } }, (response) => {
-      let raw = '';
-      response.on('data', chunk => raw += chunk);
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
       response.on('end', () => {
         try {
+          const raw = Buffer.concat(chunks).toString('utf8');
           resolve(JSON.parse(raw));
         } catch {
           resolve([]);

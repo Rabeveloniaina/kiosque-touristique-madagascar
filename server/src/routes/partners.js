@@ -16,8 +16,14 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 function fixUtf8(str) {
-  if (!str) return '';
-  try { return Buffer.from(str, 'latin1').toString('utf8'); } catch { return str; }
+  if (!str || typeof str !== 'string') return str || '';
+  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
+    try {
+      const decoded = Buffer.from(str, 'latin1').toString('utf8');
+      if (!decoded.includes('\uFFFD')) return decoded;
+    } catch {}
+  }
+  return str;
 }
 
 // 1. PUBLIC: Get partners for active city

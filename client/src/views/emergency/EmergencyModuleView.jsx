@@ -8,6 +8,7 @@ import { mockEmergency } from '../../data/mockData';
 import { translations } from '../../data/translations';
 import { api } from '../../services/api';
 import { getQrCodeImageUrl } from '../../utils/navigation';
+import ItineraryPreviewModal from '../../components/ItineraryPreviewModal';
 
 // Icon map for emergency types
 const ICON_MAP = {
@@ -71,6 +72,7 @@ export default function EmergencyModuleView({ currentLang, kioskConfig }) {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeEmergencyQr, setActiveEmergencyQr] = useState(null);
+  const [selectedItineraryContact, setSelectedItineraryContact] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const t = translations[currentLang] || translations.fr;
@@ -274,16 +276,27 @@ export default function EmergencyModuleView({ currentLang, kioskConfig }) {
                         )}
                       </div>
 
-                      {/* QR Button */}
+                      {/* Itinerary Actions */}
                       {hasLocation && (
-                        <button
-                          onClick={() => setActiveEmergencyQr(item)}
-                          className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl ${cfg.iconBg} border text-xs font-bold active:scale-95 transition-transform ${cfg.iconColor} whitespace-nowrap`}
-                        >
-                          <QrCode className="w-4 h-4" />
-                          <span>Itinéraire QR</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setSelectedItineraryContact(item)}
+                            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold active:scale-95 transition shadow-sm whitespace-nowrap cursor-pointer"
+                            title="Voir l'itinéraire sur la borne"
+                          >
+                            <Navigation className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Itinéraire</span>
+                          </button>
+
+                          <button
+                            onClick={() => setActiveEmergencyQr(item)}
+                            className={`flex items-center space-x-1 px-2.5 py-2 rounded-xl ${cfg.iconBg} border text-xs font-bold active:scale-95 transition-transform ${cfg.iconColor} whitespace-nowrap cursor-pointer`}
+                            title="Scanner le QR Code"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>QR</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -372,6 +385,14 @@ export default function EmergencyModuleView({ currentLang, kioskConfig }) {
           </div>
         </div>
       )}
+      {/* Interactive Itinerary Preview Modal on Touch Screen */}
+      <ItineraryPreviewModal
+        isOpen={!!selectedItineraryContact}
+        onClose={() => setSelectedItineraryContact(null)}
+        place={selectedItineraryContact}
+        kioskConfig={kioskConfig}
+        currentLang={currentLang}
+      />
     </div>
   );
 }

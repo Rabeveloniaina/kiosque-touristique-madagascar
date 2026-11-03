@@ -116,7 +116,7 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
     } finally {
       setLoading(false);
     }
-    analytics.trackInteraction('places', 'module_opened');
+    analytics.logInteraction('places', 'module_opened');
   };
 
   useEffect(() => {
@@ -129,7 +129,7 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
 
   const handleQrClick = (placeKey, placeName) => {
     setExpandedQr(expandedQr === placeKey ? null : placeKey);
-    analytics.trackInteraction('places', `qr_scan:${placeName}`);
+    analytics.logInteraction('places', `qr_scan:${placeName}`);
   };
 
   if (loading) {
@@ -233,7 +233,6 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
             const hasCoords = place.lat && place.lng;
             const placeKey = place.id || place.name;
             const qrUrl = hasCoords ? getQrCodeImageUrl(place.lat, place.lng, place.name) : null;
-            const mapsUrl = hasCoords ? getDirectionsUrl(place.lat, place.lng, place.name) : null;
             const isQrExpanded = expandedQr === placeKey;
 
             return (
@@ -324,7 +323,7 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
                       <button
                         onClick={() => {
                           setSelectedItineraryPlace(place);
-                          analytics.trackInteraction('places', `itinerary_preview:${place.name}`);
+                          analytics.logInteraction('places', `itinerary_preview:${place.name}`);
                         }}
                         className="flex-1 flex items-center justify-center space-x-2 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shadow-md"
                       >

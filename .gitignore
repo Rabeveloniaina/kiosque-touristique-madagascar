@@ -20,9 +20,15 @@ yarn-error.log*
 .env.local
 .env.*.local
 
-# SQLite temp journal / WAL files
+# Local SQLite database (contains admin accounts & kiosk data)
+*.db
+*.db-journal
 *.db-shm
 *.db-wal
+
+# User-uploaded media (keep the directory itself)
+server/uploads/*
+!server/uploads/.gitkeep
 
 # Temporary scratch folders
 scratch/

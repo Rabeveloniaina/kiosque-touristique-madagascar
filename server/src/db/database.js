@@ -75,21 +75,7 @@ function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- 5. Table Partenaires locaux avec coordonnées GPS
-    CREATE TABLE IF NOT EXISTS partners (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      description TEXT,
-      contact TEXT,
-      address TEXT,
-      image_url TEXT,
-      lat REAL DEFAULT -21.4536,
-      lng REAL DEFAULT 47.0858,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- 6. Table Urgences & Infos pratiques avec coordonnées GPS
+    -- 5. Table Urgences & Infos pratiques avec coordonnées GPS
     CREATE TABLE IF NOT EXISTS emergency_contacts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -102,7 +88,7 @@ function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- 7. Télémétrie anonyme : sessions & interactions
+    -- 6. Télémétrie anonyme : sessions & interactions
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -120,7 +106,7 @@ function initDatabase() {
       FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
 
-    -- 8. Configuration du Kiosque (Ville active, coordonnées, région)
+    -- 7. Configuration du Kiosque (Ville active, coordonnées, région)
     CREATE TABLE IF NOT EXISTS kiosk_config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -138,9 +124,6 @@ function initDatabase() {
   try { db.exec("ALTER TABLE events ADD COLUMN lat REAL;"); } catch {}
   try { db.exec("ALTER TABLE events ADD COLUMN lng REAL;"); } catch {}
   try { db.exec("ALTER TABLE events ADD COLUMN city TEXT DEFAULT 'Fianarantsoa';"); } catch {}
-  try { db.exec("ALTER TABLE partners ADD COLUMN lat REAL;"); } catch {}
-  try { db.exec("ALTER TABLE partners ADD COLUMN lng REAL;"); } catch {}
-  try { db.exec("ALTER TABLE partners ADD COLUMN city TEXT DEFAULT 'Fianarantsoa';"); } catch {}
   try { db.exec("ALTER TABLE emergency_contacts ADD COLUMN lat REAL;"); } catch {}
   try { db.exec("ALTER TABLE emergency_contacts ADD COLUMN lng REAL;"); } catch {}
   try { db.exec("ALTER TABLE emergency_contacts ADD COLUMN city TEXT DEFAULT 'Fianarantsoa';"); } catch {}
@@ -151,14 +134,8 @@ function initDatabase() {
       UPDATE places SET city = 'Fianarantsoa' WHERE city IS NULL OR city = '';
       UPDATE events SET city = 'Fianarantsoa' WHERE city IS NULL OR city = '';
       UPDATE events SET lat = -21.4536, lng = 47.0858 WHERE lat IS NULL;
-      UPDATE partners SET city = 'Fianarantsoa' WHERE city IS NULL OR city = '';
-      UPDATE partners SET lat = -21.4536, lng = 47.0858 WHERE lat IS NULL;
       UPDATE emergency_contacts SET city = 'Fianarantsoa' WHERE city IS NULL OR city = '';
       UPDATE emergency_contacts SET lat = -21.4536, lng = 47.0858 WHERE lat IS NULL;
-      -- Specific partner locations:
-      UPDATE partners SET lat = -21.4589, lng = 47.0812 WHERE name LIKE '%Lazan%';
-      UPDATE partners SET lat = -21.4833, lng = 47.2167 WHERE name LIKE '%Sahambavy%';
-      UPDATE partners SET lat = -21.4550, lng = 47.0850 WHERE name LIKE '%Antemoro%';
       -- Specific emergency locations:
       UPDATE emergency_contacts SET lat = -21.4540, lng = 47.0820 WHERE name LIKE '%Police%';
       UPDATE emergency_contacts SET lat = -21.4480, lng = 47.0910 WHERE name LIKE '%CHU%' OR name LIKE '%Tambohobe%';
@@ -770,8 +747,6 @@ function getAvailableCities() {
       UNION
       SELECT city FROM events WHERE city IS NOT NULL AND city != ''
       UNION
-      SELECT city FROM partners WHERE city IS NOT NULL AND city != ''
-      UNION
       SELECT city FROM emergency_contacts WHERE city IS NOT NULL AND city != ''
     ) ORDER BY city ASC
   `).all();
@@ -779,7 +754,6 @@ function getAvailableCities() {
   return cities.map(c => {
     const places_count = db.prepare('SELECT count(*) as count FROM places WHERE city = ?').get(c.city).count;
     const events_count = db.prepare('SELECT count(*) as count FROM events WHERE city = ?').get(c.city).count;
-    const partners_count = db.prepare('SELECT count(*) as count FROM partners WHERE city = ?').get(c.city).count;
     const emergency_count = db.prepare('SELECT count(*) as count FROM emergency_contacts WHERE city = ?').get(c.city).count;
     const samplePlace = db.prepare('SELECT lat, lng FROM places WHERE city = ? AND lat IS NOT NULL AND lat != 0 LIMIT 1').get(c.city);
 
@@ -802,7 +776,6 @@ function getAvailableCities() {
       region,
       places_count,
       events_count,
-      partners_count,
       emergency_count
     };
   });
@@ -818,18 +791,15 @@ function deleteCity(cityName) {
 
   const delPlaces = db.prepare('DELETE FROM places WHERE LOWER(city) = LOWER(?)');
   const delEvents = db.prepare('DELETE FROM events WHERE LOWER(city) = LOWER(?)');
-  const delPartners = db.prepare('DELETE FROM partners WHERE LOWER(city) = LOWER(?)');
   const delEmergency = db.prepare('DELETE FROM emergency_contacts WHERE LOWER(city) = LOWER(?)');
 
   const tx = db.transaction((name) => {
     const p = delPlaces.run(name);
     const e = delEvents.run(name);
-    const pt = delPartners.run(name);
     const em = delEmergency.run(name);
     return {
       deletedPlaces: p.changes,
       deletedEvents: e.changes,
-      deletedPartners: pt.changes,
       deletedEmergency: em.changes
     };
   });

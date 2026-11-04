@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  Map, UtensilsCrossed, SunMedium, Languages, ShieldAlert, Handshake,
-  ChevronRight, MapPin, Wifi, Star, Calendar, Phone
+  Map, UtensilsCrossed, SunMedium, Languages, ShieldAlert, Coins,
+  ChevronRight, MapPin, Wifi, Star, Calendar, Phone, Euro, ArrowLeftRight
 } from 'lucide-react';
 import { translations } from '../../data/translations';
 
@@ -84,17 +84,17 @@ export default function MainMenuView({ currentLang, onSelectModule, kioskConfig 
       stats: [{ icon: Phone, text: 'Numéros directs' }, { icon: MapPin, text: 'QR itinéraire' }]
     },
     {
-      id: 'PARTNERS',
-      icon: Handshake,
-      title: t.modules.partners.title,
-      desc: t.modules.partners.desc,
-      gradient: 'from-yellow-600 to-amber-700',
-      glow: 'group-hover:shadow-yellow-500/20',
-      iconBg: 'bg-yellow-600',
-      border: 'border-yellow-500/20 hover:border-yellow-400/60',
-      badge: 'Terroir local',
-      badgeColor: 'bg-yellow-900/80 text-yellow-300 border-yellow-500/30',
-      stats: [{ icon: Star, text: 'Artisans certifiés' }, { icon: MapPin, text: 'Adresses GPS' }]
+      id: 'CONVERTER',
+      icon: Coins,
+      title: t.modules.converter.title,
+      desc: t.modules.converter.desc,
+      gradient: 'from-cyan-600 to-blue-700',
+      glow: 'group-hover:shadow-cyan-500/20',
+      iconBg: 'bg-cyan-600',
+      border: 'border-cyan-500/20 hover:border-cyan-400/60',
+      badge: 'Taux du jour',
+      badgeColor: 'bg-cyan-900/80 text-cyan-300 border-cyan-500/30',
+      stats: [{ icon: Euro, text: 'EUR · USD' }, { icon: ArrowLeftRight, text: 'Conversion instantanée' }]
     },
   ];
 

@@ -10,7 +10,7 @@ import PlacesModuleView from './views/places/PlacesModuleView';
 import WeatherModuleView from './views/weather/WeatherModuleView';
 import PhrasesModuleView from './views/phrases/PhrasesModuleView';
 import EmergencyModuleView from './views/emergency/EmergencyModuleView';
-import PartnersModuleView from './views/partners/PartnersModuleView';
+import ConverterModuleView from './views/converter/ConverterModuleView';
 import BackOfficeModal from './views/admin/BackOfficeModal';
 
 import { usePresenceCamera } from './hooks/usePresenceCamera';
@@ -20,7 +20,7 @@ import { api } from './services/api';
 import { Video, Megaphone, Camera, Sun, Moon } from 'lucide-react';
 
 export default function App() {
-  // Screens: 'SCREENSAVER' | 'LANG_SELECT' | 'MAIN_MENU' | 'MAP' | 'PLACES' | 'WEATHER_EVENTS' | 'PHRASES' | 'EMERGENCY' | 'PARTNERS'
+  // Screens: 'SCREENSAVER' | 'LANG_SELECT' | 'MAIN_MENU' | 'MAP' | 'PLACES' | 'WEATHER_EVENTS' | 'PHRASES' | 'EMERGENCY' | 'CONVERTER'
   const [currentScreen, setCurrentScreen] = useState('SCREENSAVER');
   const [currentLang, setCurrentLang] = useState('fr');
   const [isBackOfficeOpen, setIsBackOfficeOpen] = useState(false);
@@ -211,8 +211,8 @@ export default function App() {
                 kioskConfig={kioskConfig}
               />
             )}
-            {currentScreen === 'PARTNERS' && (
-              <PartnersModuleView
+            {currentScreen === 'CONVERTER' && (
+              <ConverterModuleView
                 currentLang={currentLang}
                 onLogItemClick={handleLogItemClick}
                 kioskConfig={kioskConfig}

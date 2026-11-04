@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Lock, Megaphone, BarChart3, Settings, Plus, Trash2, Power, 
   Clock, Globe2, Users, Check, AlertCircle, Upload, Link as LinkIcon, 
-  MapPin, Calendar, Handshake, ShieldAlert, Edit, Save, UserPlus, KeyRound,
+  MapPin, Calendar, ShieldAlert, Edit, Save, UserPlus, KeyRound,
   Download, Sparkles, Navigation, Compass, Layers, RefreshCw, Crosshair, Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -10,7 +10,7 @@ import { analytics } from '../../services/analytics';
 import LocationPickerModal from '../../components/LocationPickerModal';
 
 export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityChanged }) {
-  // Navigation tabs: 'ads' | 'places' | 'events' | 'partners' | 'emergency' | 'config' | 'stats' | 'users'
+  // Navigation tabs: 'ads' | 'places' | 'events' | 'emergency' | 'config' | 'stats' | 'users'
   const [activeTab, setActiveTab] = useState('ads');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -20,7 +20,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   // Map Picker State
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
-  const [mapPickerTarget, setMapPickerTarget] = useState(null); // 'places' | 'events' | 'partners' | 'emergency'
+  const [mapPickerTarget, setMapPickerTarget] = useState(null); // 'places' | 'events' | 'emergency' | 'kiosk'
 
   // 1. Ads state
   const [ads, setAds] = useState([]);
@@ -60,18 +60,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   };
   const [eventForm, setEventForm] = useState(initialEventForm);
 
-  // 4. Partners state
-  const [partners, setPartners] = useState([]);
-  const [isAddingPartner, setIsAddingPartner] = useState(false);
-  const [editingPartner, setEditingPartner] = useState(null);
-  const initialPartnerForm = {
-    name: '', type: 'Artisanat', description: '',
-    contact: '', address: 'Fianarantsoa', image_url: '',
-    lat: -21.4536, lng: 47.0858
-  };
-  const [partnerForm, setPartnerForm] = useState(initialPartnerForm);
-
-  // 5. Emergency state
+  // 4. Emergency state
   const [emergencyList, setEmergencyList] = useState([]);
   const [isAddingEmergency, setIsAddingEmergency] = useState(false);
   const [editingEmergency, setEditingEmergency] = useState(null);
@@ -81,21 +70,21 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   };
   const [emergencyForm, setEmergencyForm] = useState(initialEmergencyForm);
 
-  // 6. Users & Profile state
+  // 5. Users & Profile state
   const [usersList, setUsersList] = useState([]);
   const [profileForm, setProfileForm] = useState({ new_username: '', new_password: '', full_name: '' });
   const [newUserForm, setNewUserForm] = useState({ username: '', password: '', full_name: '' });
   const [profileMsg, setProfileMsg] = useState('');
 
-  // 7. Stats
+  // 6. Stats
   const [stats, setStats] = useState(null);
 
-  // 8. OpenStreetMap / Google Automatic Extractor
+  // 7. OpenStreetMap / Google Automatic Extractor
   const [importCity, setImportCity] = useState('Fianarantsoa');
   const [isImportingOsm, setIsImportingOsm] = useState(false);
   const [importMsg, setImportMsg] = useState('');
 
-  // 9. Kiosk City & Location Switcher
+  // 8. Kiosk City & Location Switcher
   const [kioskConfigData, setKioskConfigData] = useState(null);
   const [availableCities, setAvailableCities] = useState([]);
   const [citySearchQuery, setCitySearchQuery] = useState('');
@@ -144,11 +133,10 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   const loadAllData = async () => {
     try {
-      const [allAds, allPlaces, allEvents, allPartners, allEmergency, currentStats, users, configRes] = await Promise.all([
+      const [allAds, allPlaces, allEvents, allEmergency, currentStats, users, configRes] = await Promise.all([
         api.getAllAds().catch(() => []),
         api.getPlaces().catch(() => []),
         api.getEvents().catch(() => []),
-        api.getPartners().catch(() => []),
         api.getEmergency().catch(() => []),
         api.getSummaryStats().catch(() => null),
         api.getUsers().catch(() => []),
@@ -157,7 +145,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       setAds(allAds || []);
       setPlaces(allPlaces || []);
       setEvents(allEvents || []);
-      setPartners(allPartners || []);
       setEmergencyList(allEmergency || []);
       setStats(currentStats);
       setUsersList(users || []);
@@ -285,8 +272,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       setPlaceForm((prev) => ({ ...prev, lat, lng }));
     } else if (mapPickerTarget === 'events') {
       setEventForm((prev) => ({ ...prev, lat, lng }));
-    } else if (mapPickerTarget === 'partners') {
-      setPartnerForm((prev) => ({ ...prev, lat, lng }));
     } else if (mapPickerTarget === 'emergency') {
       setEmergencyForm((prev) => ({ ...prev, lat, lng }));
     } else if (mapPickerTarget === 'kiosk') {
@@ -514,69 +499,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     }
   };
 
-  // --- PARTNERS ACTIONS ---
-  const handleOpenAddPartner = () => {
-    setEditingPartner(null);
-    setPartnerForm({
-      name: '', type: 'Artisanat', description: '',
-      contact: '', address: 'Fianarantsoa', image_url: '',
-      lat: -21.4536, lng: 47.0858
-    });
-    setIsAddingPartner(true);
-  };
-
-  const handleEditPartner = (p) => {
-    setEditingPartner(p);
-    setPartnerForm({
-      name: p.name,
-      type: p.type,
-      description: p.description || '',
-      contact: p.contact || '',
-      address: p.address || 'Fianarantsoa',
-      image_url: p.image_url || '',
-      lat: p.lat || -21.4536,
-      lng: p.lng || 47.0858
-    });
-    setIsAddingPartner(true);
-  };
-
-  const handleSavePartner = async (e) => {
-    e.preventDefault();
-    try {
-      const formData = new FormData();
-      formData.append('name', partnerForm.name);
-      formData.append('type', partnerForm.type);
-      formData.append('description', partnerForm.description);
-      formData.append('contact', partnerForm.contact);
-      formData.append('address', partnerForm.address);
-      formData.append('image_url', partnerForm.image_url);
-      formData.append('lat', partnerForm.lat);
-      formData.append('lng', partnerForm.lng);
-      formData.append('city', kioskConfigData?.active_city || 'Fianarantsoa');
-
-      if (editingPartner) {
-        await api.updatePartner(editingPartner.id, formData);
-      } else {
-        await api.addPartner(formData);
-      }
-      setIsAddingPartner(false);
-      setEditingPartner(null);
-      setPartnerForm({ ...initialPartnerForm });
-      const updated = await api.getPartners();
-      setPartners(updated);
-    } catch (err) {
-      alert('Erreur partenaire : ' + err.message);
-    }
-  };
-
-  const handleDeletePartner = async (id) => {
-    if (confirm('Supprimer ce partenaire ?')) {
-      await api.deletePartner(id);
-      const updated = await api.getPartners();
-      setPartners(updated);
-    }
-  };
-
   // --- EMERGENCY ACTIONS ---
   const handleOpenAddEmergency = () => {
     setEditingEmergency(null);
@@ -749,7 +671,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 { id: 'ads', label: 'Publicités Veille', icon: Megaphone, count: ads.length },
                 { id: 'places', label: 'Carte & Établissements', icon: MapPin, count: places.length },
                 { id: 'events', label: 'Événements & Météo', icon: Calendar, count: events.length },
-                { id: 'partners', label: 'Partenaires Terroir', icon: Handshake, count: partners.length },
                 { id: 'emergency', label: 'Urgences & Infos', icon: ShieldAlert, count: emergencyList.length },
                 { id: 'config', label: 'Emplacement & Ville', icon: Compass, count: availableCities.length },
                 { id: 'stats', label: 'Statistiques Avancées', icon: BarChart3 },
@@ -1433,126 +1354,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 4. PARTENAIRES TAB (With Map Picker & Edit) */}
-              {activeTab === 'partners' && (
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-xl font-black">Gestion des Partenaires & Terroir</h3>
-                      <p className="text-xs text-slate-400">Entreprises locales avec géolocalisation pour guidage mobile.</p>
-                    </div>
-                    {isAddingPartner ? (
-                      <button
-                        onClick={() => {
-                          setIsAddingPartner(false);
-                          setEditingPartner(null);
-                        }}
-                        className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase"
-                      >
-                        <X className="w-4 h-4 text-rose-400" />
-                        <span>Fermer le formulaire</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleOpenAddPartner}
-                        className="flex items-center space-x-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs uppercase"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Ajouter un partenaire</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {isAddingPartner && (
-                    <form onSubmit={handleSavePartner} className="bg-slate-950 border-2 border-amber-500/50 rounded-2xl p-6 mb-6">
-                      <h4 className="font-bold text-amber-400 mb-4">{editingPartner ? 'Modifier le partenaire' : 'Nouveau Partenaire'}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Nom de l'entreprise *</label>
-                          <input
-                            type="text"
-                            required
-                            value={partnerForm.name}
-                            onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Type d'activité *</label>
-                          <input
-                            type="text"
-                            required
-                            value={partnerForm.type}
-                            onChange={(e) => setPartnerForm({ ...partnerForm, type: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Contact téléphonique</label>
-                          <input
-                            type="text"
-                            value={partnerForm.contact}
-                            onChange={(e) => setPartnerForm({ ...partnerForm, contact: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">URL photo/logo</label>
-                          <input
-                            type="url"
-                            value={partnerForm.image_url}
-                            onChange={(e) => setPartnerForm({ ...partnerForm, image_url: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Position sur la carte</label>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenMapPicker('partners')}
-                            className="w-full py-2 px-3 bg-amber-500/20 text-amber-300 border border-amber-400/30 rounded-xl font-bold text-xs flex items-center justify-center space-x-1 hover:bg-amber-500 hover:text-slate-950 transition"
-                          >
-                            <MapPin className="w-4 h-4" />
-                            <span>Pointer sur la carte</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl text-xs uppercase"
-                      >
-                        {editingPartner ? 'Mettre à jour le partenaire' : 'Enregistrer le partenaire'}
-                      </button>
-                    </form>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {partners.map((p) => (
-                      <div key={p.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex justify-between items-center">
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-amber-400">{p.type}</span>
-                          <h4 className="text-base font-bold text-white">{p.name}</h4>
-                          <p className="text-xs text-emerald-400 font-mono">{p.contact}</p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button onClick={() => handleEditPartner(p)} className="text-amber-400 hover:text-amber-300 p-1">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDeletePartner(p.id)} className="text-rose-400 hover:text-rose-300 p-1">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 5. URGENCES TAB (With Map Picker & Edit) */}
+              {/* 4. URGENCES TAB (With Map Picker & Edit) */}
               {activeTab === 'emergency' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
@@ -1915,7 +1717,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                       </div>
 
                       {/* Données actives en ce moment pour cette ville */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
                           <span className="text-xl font-black text-amber-400">{places.length}</span>
                           <span className="text-[10px] text-slate-400 font-bold block uppercase mt-0.5">Lieux & Hôtels</span>
@@ -1923,10 +1725,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
                           <span className="text-xl font-black text-emerald-400">{events.length}</span>
                           <span className="text-[10px] text-slate-400 font-bold block uppercase mt-0.5">Événements</span>
-                        </div>
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
-                          <span className="text-xl font-black text-sky-400">{partners.length}</span>
-                          <span className="text-[10px] text-slate-400 font-bold block uppercase mt-0.5">Partenaires</span>
                         </div>
                         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
                           <span className="text-xl font-black text-rose-400">{emergencyList.length}</span>
@@ -1959,7 +1757,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         <span>Villes enregistrées en base ({availableCities.length})</span>
                       </h3>
                       <p className="text-xs text-slate-400 mt-1">
-                        Toutes les données manuelles de chaque ville restent sauvegardées. Vous pouvez réactiver une ancienne ville en 1 clic pour restaurer ses événements et partenaires intacts, ou la supprimer définitivement pour libérer la mémoire.
+                        Toutes les données manuelles de chaque ville restent sauvegardées. Vous pouvez réactiver une ancienne ville en 1 clic pour restaurer ses événements et lieux intacts, ou la supprimer définitivement pour libérer la mémoire.
                       </p>
                     </div>
 
@@ -2016,9 +1814,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                                 </span>
                                 <span className="bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
                                   {c.events_count || 0} événements
-                                </span>
-                                <span className="bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
-                                  {c.partners_count || 0} partenaires
                                 </span>
                               </div>
                             </div>
@@ -2219,7 +2014,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         <div className="p-3 my-4 bg-slate-950 rounded-xl border border-slate-800 text-left text-xs space-y-1.5 text-slate-300">
                           <div>• <b>{cityToDelete.places_count}</b> lieux touristiques & établissements</div>
                           <div>• <b>{cityToDelete.events_count || 0}</b> événements enregistrés</div>
-                          <div>• <b>{cityToDelete.partners_count || 0}</b> partenaires locaux</div>
                           <div>• <b>{cityToDelete.emergency_count || 0}</b> contacts d'urgence</div>
                         </div>
                         <p className="text-rose-400 text-xs font-semibold mb-4">
@@ -2408,13 +2202,11 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
           initialLat={
             mapPickerTarget === 'places' ? placeForm.lat :
             mapPickerTarget === 'events' ? eventForm.lat :
-            mapPickerTarget === 'partners' ? partnerForm.lat :
             mapPickerTarget === 'emergency' ? emergencyForm.lat : -21.4536
           }
           initialLng={
             mapPickerTarget === 'places' ? placeForm.lng :
             mapPickerTarget === 'events' ? eventForm.lng :
-            mapPickerTarget === 'partners' ? partnerForm.lng :
             mapPickerTarget === 'emergency' ? emergencyForm.lng : 47.0858
           }
           onConfirm={handleCoordsPicked}

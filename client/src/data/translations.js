@@ -24,7 +24,6 @@ export const translations = {
     satellite: "Sary avy amin'ny zanabolana",
     noEvents: "Tsy misy hetsika ho avy",
     noPlaces: "Tsy misy toerana voarakitra",
-    noPartners: "Tsy misy mpiara-miasa voarakitra",
     contactInfo: "Fifandraisana",
     directions: "Lalana",
     qrCode: "QR Code GPS",
@@ -38,7 +37,34 @@ export const translations = {
     pharmacy: "Fivarotam-panafody",
     noService: "Tsy misy tolotra vonjy taitra",
     itinerary: "Lalana GPS",
-    partners: "Mpiara-miasa",
+    converter: {
+      title: "Mpamadika vola",
+      subtitle: "Ariary (Ar) ⇄ Euro (€) / Dollar ($)",
+      fromLabel: "Vola hamadika",
+      amountLabel: "Ny vola",
+      clear: "Fafana",
+      backspace: "Fafana ny isa farany",
+      quickAmounts: "Vola haingana",
+      resultsTitle: "Vokany",
+      ratesTitle: "Taham-bidin'ny tsena",
+      refresh: "Havaozina",
+      refreshing: "Manavao…",
+      live: "Taham-bidy vaovao",
+      cached: "Taham-bidy voatahiry",
+      fallback: "Taham-bidy fanombohana",
+      offline: "Tsy misy fifandraisana — taham-bidy voatahiry",
+      offlineDefault: "Tsy misy fifandraisana — taham-bidy fanombohana",
+      disclaimer: "Taham-bidy fanondroana fotsiny, mety hiova.",
+      source: "Loharano: open.er-api.com",
+      equivalent: "Mitovy amin'ny",
+      keypadHint: "Kitio ny isa",
+      market: "Tsena",
+      currencies: {
+        MGA: "Ariary",
+        EUR: "Euro",
+        USD: "Dolara"
+      }
+    },
     modules: {
       map: {
         title: "Sarin-tany & Fitsidihana",
@@ -60,9 +86,9 @@ export const translations = {
         title: "Vonjy taitra & Fanampiana",
         desc: "Laharana maika sy hopitaly"
       },
-      partners: {
-        title: "Mpiara-miasa & Mpanao asa tanana",
-        desc: "Vokatra mampiavaka ny faritra"
+      converter: {
+        title: "Mpamadika vola",
+        desc: "Ariary ⇄ Euro / Dollar avy hatrany"
       }
     },
     analytics: {
@@ -95,7 +121,6 @@ export const translations = {
     satellite: "Vue satellite",
     noEvents: "Aucun événement à venir",
     noPlaces: "Aucun lieu répertorié",
-    noPartners: "Aucun partenaire répertorié",
     contactInfo: "Contact",
     directions: "Itinéraire",
     qrCode: "QR Code GPS",
@@ -109,7 +134,34 @@ export const translations = {
     pharmacy: "Pharmacie",
     noService: "Aucun service d'urgence trouvé",
     itinerary: "Itinéraire GPS",
-    partners: "Partenaires",
+    converter: {
+      title: "Convertisseur de devises",
+      subtitle: "Ariary (Ar) ⇄ Euro (€) / Dollar ($)",
+      fromLabel: "Devise de départ",
+      amountLabel: "Montant à convertir",
+      clear: "Effacer",
+      backspace: "Effacer le dernier chiffre",
+      quickAmounts: "Montants rapides",
+      resultsTitle: "Conversion instantanée",
+      ratesTitle: "Taux du marché",
+      refresh: "Actualiser",
+      refreshing: "Actualisation…",
+      live: "Taux en direct",
+      cached: "Taux en cache",
+      fallback: "Taux indicatifs",
+      offline: "Hors ligne — taux en cache",
+      offlineDefault: "Hors ligne — taux indicatifs",
+      disclaimer: "Taux indicatifs, susceptibles de varier.",
+      source: "Source : open.er-api.com",
+      equivalent: "Équivalent en",
+      keypadHint: "Touchez les chiffres",
+      market: "Indicatif",
+      currencies: {
+        MGA: "Ariary",
+        EUR: "Euro",
+        USD: "Dollar US"
+      }
+    },
     modules: {
       map: {
         title: "Carte & Itinéraires",
@@ -131,9 +183,9 @@ export const translations = {
         title: "Urgences & Infos Utiles",
         desc: "Numéros d'urgence, hôpitaux, pharmacies"
       },
-      partners: {
-        title: "Partenaires & Artisans",
-        desc: "Artisanat d'excellence et savoir-faire local"
+      converter: {
+        title: "Convertisseur de Devises",
+        desc: "Ariary ⇄ Euro / Dollar en un instant"
       }
     },
     analytics: {
@@ -166,7 +218,6 @@ export const translations = {
     satellite: "Satellite View",
     noEvents: "No upcoming events",
     noPlaces: "No places listed yet",
-    noPartners: "No partners listed yet",
     contactInfo: "Contact",
     directions: "Directions",
     qrCode: "GPS QR Code",
@@ -180,7 +231,34 @@ export const translations = {
     pharmacy: "Pharmacy",
     noService: "No emergency service found",
     itinerary: "GPS Route",
-    partners: "Partners",
+    converter: {
+      title: "Currency Converter",
+      subtitle: "Ariary (Ar) ⇄ Euro (€) / US Dollar ($)",
+      fromLabel: "From currency",
+      amountLabel: "Amount to convert",
+      clear: "Clear",
+      backspace: "Delete last digit",
+      quickAmounts: "Quick amounts",
+      resultsTitle: "Instant conversion",
+      ratesTitle: "Market rates",
+      refresh: "Refresh",
+      refreshing: "Refreshing…",
+      live: "Live rates",
+      cached: "Cached rates",
+      fallback: "Indicative rates",
+      offline: "Offline — cached rates",
+      offlineDefault: "Offline — indicative rates",
+      disclaimer: "Indicative rates, subject to change.",
+      source: "Source: open.er-api.com",
+      equivalent: "Equivalent in",
+      keypadHint: "Tap the numbers",
+      market: "Indicative",
+      currencies: {
+        MGA: "Ariary",
+        EUR: "Euro",
+        USD: "US Dollar"
+      }
+    },
     modules: {
       map: {
         title: "Interactive Map & Tours",
@@ -202,9 +280,9 @@ export const translations = {
         title: "Emergency & Practical Info",
         desc: "Police, medical emergency, pharmacies"
       },
-      partners: {
-        title: "Partners & Local Crafts",
-        desc: "Authentic handicrafts and local products"
+      converter: {
+        title: "Currency Converter",
+        desc: "Ariary ⇄ Euro / Dollar in a tap"
       }
     },
     analytics: {

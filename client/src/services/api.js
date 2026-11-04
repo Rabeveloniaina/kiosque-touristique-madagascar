@@ -228,47 +228,6 @@ export const api = {
     return await res.json();
   },
 
-  // --- PARTNERS ---
-  async getPartners() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/partners`);
-      if (!res.ok) throw new Error('Erreur');
-      return await res.json();
-    } catch {
-      return null;
-    }
-  },
-
-  async addPartner(formData) {
-    const res = await fetch(`${API_BASE_URL}/partners`, {
-      method: 'POST',
-      headers: { ...getAuthHeader() },
-      body: formData
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur ajout partenaire.');
-    return data;
-  },
-
-  async updatePartner(id, formData) {
-    const res = await fetch(`${API_BASE_URL}/partners/${id}`, {
-      method: 'PUT',
-      headers: { ...getAuthHeader() },
-      body: formData
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur modification partenaire.');
-    return data;
-  },
-
-  async deletePartner(id) {
-    const res = await fetch(`${API_BASE_URL}/partners/${id}`, {
-      method: 'DELETE',
-      headers: { ...getAuthHeader() }
-    });
-    return await res.json();
-  },
-
   // --- EMERGENCY ---
   async getEmergency() {
     try {

@@ -41,7 +41,6 @@ const adsRoutes = require('./routes/ads');
 const statsRoutes = require('./routes/stats');
 const placesRoutes = require('./routes/places');
 const eventsRoutes = require('./routes/events');
-const partnersRoutes = require('./routes/partners');
 const emergencyRoutes = require('./routes/emergency');
 const configRoutes = require('./routes/config');
 
@@ -50,7 +49,6 @@ app.use('/api/ads', adsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/places', placesRoutes);
 app.use('/api/events', eventsRoutes);
-app.use('/api/partners', partnersRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/config', configRoutes);
 

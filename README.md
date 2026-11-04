@@ -208,7 +208,6 @@ Depuis le kiosque : **appui long (5 secondes) sur le coin inférieur droit** de 
 | 📢 **Publicités** | Ajouter/modifier/supprimer des slides (image URL ou fichier local, vidéo MP4) |
 | 📍 **Lieux & Itinéraires** | CRUD des sites touristiques avec GPS (sélection sur carte), photos, étapes |
 | 📅 **Événements & Météo** | CRUD événements avec validation date (pas de date passée), GPS via carte |
-| 🤝 **Partenaires** | Gestion des partenaires locaux avec logo, contact, localisation GPS |
 | 🚨 **Urgences** | Contacts d'urgence (police, médecins, pompiers) avec localisation |
 | 📊 **Statistiques** | Sessions, durée moyenne, langues, pics d'affluence, graphe 7 jours, top QR |
 | 👥 **Comptes** | Modifier son profil, créer des comptes admin, supprimer des comptes |
@@ -263,11 +262,12 @@ Formats supportés : `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.mp4`
 - QR Code de navigation vers le service
 - Localisation GPS précise
 
-### 8. Partenaires locaux
-- Logos partenaires uploadés
-- Lien site web cliquable
-- QR Code de navigation vers le partenaire
-- Filtrable par catégorie
+### 8. Convertisseur de devises
+- Conversion instantanée Ariary (MGA) ⇄ Euro (€) / Dollar US ($)
+- Pavé numérique tactile et montants rapides adaptés aux prix locaux
+- Taux indicatifs par défaut : `1 EUR = 5 000 MGA`, `1 USD = 4 600 MGA`
+- Actualisation optionnelle via `open.er-api.com` avec cache local (`localStorage`)
+- Fonctionne hors-ligne grâce aux taux en cache ou aux taux par défaut
 
 ### 9. Statistiques anonymes
 - Comptage de sessions (sans données personnelles)
@@ -296,11 +296,11 @@ M1/
 │   │   ├── utils/             # navigation.js (QR Code + Google Maps)
 │   │   └── views/
 │   │       ├── admin/         # BackOfficeModal.jsx
+│   │       ├── converter/     # ConverterModuleView.jsx
 │   │       ├── emergency/     # EmergencyModuleView.jsx
 │   │       ├── language/      # LanguageSelectView.jsx
 │   │       ├── map/           # MapModuleView.jsx
 │   │       ├── menu/          # MainMenuView.jsx
-│   │       ├── partners/      # PartnersModuleView.jsx
 │   │       ├── phrases/       # PhrasesModuleView.jsx
 │   │       ├── places/        # PlacesModuleView.jsx
 │   │       ├── screensaver/   # ScreensaverView.jsx
@@ -317,7 +317,6 @@ M1/
 │   │       ├── auth.js        # Login, users, profil
 │   │       ├── emergency.js   # CRUD urgences
 │   │       ├── events.js      # CRUD événements
-│   │       ├── partners.js    # CRUD partenaires
 │   │       ├── places.js      # CRUD lieux + itinéraires
 │   │       └── stats.js       # Télémétrie anonyme
 │   ├── uploads/               # Médias uploadés (images, vidéos)

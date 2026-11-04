@@ -183,24 +183,3 @@ export const mockEmergency = [
   }
 ];
 
-export const mockPartners = [
-  {
-    name: "Vignobles Lazan'i Betsileo",
-    type: "Vin & Cave locale",
-    desc: "Vins rouge, blanc et gris issus du terroir de Fianarantsoa depuis 1971.",
-    contact: "+261 20 75 502 11"
-  },
-  {
-    name: "Hôtel & Restaurant Lac Hôtel Sahambavy",
-    type: "Écolodge & Restauration",
-    desc: "Bungalows sur pilotis au bord du lac, cuisine aux saveurs betsileo.",
-    contact: "+261 34 02 048 55"
-  },
-  {
-    name: "Papeterie Traditionnelle Antemoro",
-    type: "Artisanat d'art",
-    desc: "Fabrication de papier artisanal incrusté de fleurs naturelles séchées.",
-    contact: "+261 32 40 123 45"
-  }
-];
-

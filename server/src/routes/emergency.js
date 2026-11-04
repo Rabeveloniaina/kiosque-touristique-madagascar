@@ -3,17 +3,6 @@ const router = express.Router();
 const db = require('../db/database');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 
-function fixUtf8(str) {
-  if (!str || typeof str !== 'string') return str || '';
-  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
-    try {
-      const decoded = Buffer.from(str, 'latin1').toString('utf8');
-      if (!decoded.includes('\uFFFD')) return decoded;
-    } catch {}
-  }
-  return str;
-}
-
 // 1. PUBLIC: Get emergency numbers for active city (or national)
 router.get('/', (req, res) => {
   try {
@@ -31,9 +20,9 @@ router.get('/', (req, res) => {
 // 2. ADMIN: Add emergency contact
 router.post('/', authMiddleware, (req, res) => {
   try {
-    const name = fixUtf8(req.body.name);
-    const number = fixUtf8(req.body.number);
-    const address = fixUtf8(req.body.address);
+    const name = req.body.name;
+    const number = req.body.number;
+    const address = req.body.address;
     const icon = req.body.icon || 'ShieldAlert';
     const display_order = parseInt(req.body.display_order, 10) || 0;
     const lat = parseFloat(req.body.lat) || -21.4536;
@@ -61,9 +50,9 @@ router.post('/', authMiddleware, (req, res) => {
 router.put('/:id', authMiddleware, (req, res) => {
   try {
     const { id } = req.params;
-    const name = fixUtf8(req.body.name);
-    const number = fixUtf8(req.body.number);
-    const address = fixUtf8(req.body.address);
+    const name = req.body.name;
+    const number = req.body.number;
+    const address = req.body.address;
     const icon = req.body.icon || 'ShieldAlert';
     const lat = parseFloat(req.body.lat) || -21.4536;
     const lng = parseFloat(req.body.lng) || 47.0858;

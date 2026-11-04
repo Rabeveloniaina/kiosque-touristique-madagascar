@@ -12,18 +12,6 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Helper to fix Latin-1 to UTF-8 conversion in Multer multipart forms (mojibake safe)
-function fixUtf8(str) {
-  if (!str || typeof str !== 'string') return str || '';
-  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
-    try {
-      const decoded = Buffer.from(str, 'latin1').toString('utf8');
-      if (!decoded.includes('\uFFFD')) return decoded;
-    } catch {}
-  }
-  return str;
-}
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
@@ -67,14 +55,14 @@ router.get('/all', authMiddleware, (req, res) => {
 // 3. ADMIN: Add new advertisement (File upload OR direct URL)
 router.post('/', authMiddleware, upload.single('mediaFile'), (req, res) => {
   try {
-    const title_fr = fixUtf8(req.body.title_fr);
-    const title_mg = fixUtf8(req.body.title_mg);
-    const title_en = fixUtf8(req.body.title_en);
-    const subtitle_fr = fixUtf8(req.body.subtitle_fr);
-    const subtitle_mg = fixUtf8(req.body.subtitle_mg);
-    const subtitle_en = fixUtf8(req.body.subtitle_en);
-    const badge = fixUtf8(req.body.badge);
-    const tag = fixUtf8(req.body.tag);
+    const title_fr = req.body.title_fr;
+    const title_mg = req.body.title_mg;
+    const title_en = req.body.title_en;
+    const subtitle_fr = req.body.subtitle_fr;
+    const subtitle_mg = req.body.subtitle_mg;
+    const subtitle_en = req.body.subtitle_en;
+    const badge = req.body.badge;
+    const tag = req.body.tag;
     const duration_seconds = parseInt(req.body.duration_seconds, 10) || 7;
 
     let finalMediaUrl = req.body.media_url;
@@ -129,11 +117,11 @@ router.put('/:id', authMiddleware, upload.single('mediaFile'), (req, res) => {
     const existing = db.prepare('SELECT * FROM ads WHERE id = ?').get(id);
     if (!existing) return res.status(404).json({ error: 'Publicité introuvable.' });
 
-    const title_fr = fixUtf8(req.body.title_fr) || existing.title_fr;
-    const title_mg = fixUtf8(req.body.title_mg) || existing.title_mg;
-    const title_en = fixUtf8(req.body.title_en) || existing.title_en;
-    const subtitle_fr = fixUtf8(req.body.subtitle_fr) !== undefined ? fixUtf8(req.body.subtitle_fr) : existing.subtitle_fr;
-    const badge = fixUtf8(req.body.badge) || existing.badge;
+    const title_fr = req.body.title_fr || existing.title_fr;
+    const title_mg = req.body.title_mg || existing.title_mg;
+    const title_en = req.body.title_en || existing.title_en;
+    const subtitle_fr = req.body.subtitle_fr !== undefined ? req.body.subtitle_fr : existing.subtitle_fr;
+    const badge = req.body.badge || existing.badge;
     const duration_seconds = parseInt(req.body.duration_seconds, 10) || existing.duration_seconds;
 
     let media_url = req.body.media_url || existing.media_url;

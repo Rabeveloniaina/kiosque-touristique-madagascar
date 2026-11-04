@@ -15,17 +15,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-function fixUtf8(str) {
-  if (!str || typeof str !== 'string') return str || '';
-  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
-    try {
-      const decoded = Buffer.from(str, 'latin1').toString('utf8');
-      if (!decoded.includes('\uFFFD')) return decoded;
-    } catch {}
-  }
-  return str;
-}
-
 // 1. PUBLIC: Get partners for active city
 router.get('/', (req, res) => {
   try {
@@ -42,11 +31,11 @@ router.get('/', (req, res) => {
 // 2. ADMIN: Add partner
 router.post('/', authMiddleware, upload.single('imageFile'), (req, res) => {
   try {
-    const name = fixUtf8(req.body.name);
-    const type = fixUtf8(req.body.type);
-    const description = fixUtf8(req.body.description);
-    const contact = fixUtf8(req.body.contact);
-    const address = fixUtf8(req.body.address);
+    const name = req.body.name;
+    const type = req.body.type;
+    const description = req.body.description;
+    const contact = req.body.contact;
+    const address = req.body.address;
     const lat = parseFloat(req.body.lat) || -21.4536;
     const lng = parseFloat(req.body.lng) || 47.0858;
     const city = (req.body.city || db.getActiveCityConfig().active_city).trim();
@@ -91,11 +80,11 @@ router.put('/:id', authMiddleware, upload.single('imageFile'), (req, res) => {
     const existing = db.prepare('SELECT * FROM partners WHERE id = ?').get(id);
     if (!existing) return res.status(404).json({ error: 'Partenaire introuvable.' });
 
-    const name = fixUtf8(req.body.name) || existing.name;
-    const type = fixUtf8(req.body.type) || existing.type;
-    const description = fixUtf8(req.body.description) || existing.description;
-    const contact = fixUtf8(req.body.contact) || existing.contact;
-    const address = fixUtf8(req.body.address) || existing.address;
+    const name = req.body.name || existing.name;
+    const type = req.body.type || existing.type;
+    const description = req.body.description || existing.description;
+    const contact = req.body.contact || existing.contact;
+    const address = req.body.address || existing.address;
     const lat = req.body.lat !== undefined ? parseFloat(req.body.lat) : existing.lat;
     const lng = req.body.lng !== undefined ? parseFloat(req.body.lng) : existing.lng;
     let image_url = req.body.image_url || existing.image_url;

@@ -16,18 +16,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-function fixUtf8(str) {
-  if (!str || typeof str !== 'string') return str || '';
-  // Only convert if it looks like UTF-8 bytes wrongly interpreted as latin1 (mojibake)
-  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
-    try {
-      const decoded = Buffer.from(str, 'latin1').toString('utf8');
-      if (!decoded.includes('\uFFFD')) return decoded;
-    } catch {}
-  }
-  return str;
-}
-
 // 1. PUBLIC: Get places with scope filtering ('sites' vs 'hospitality') or specific category for active city
 router.get('/', (req, res) => {
   try {
@@ -206,16 +194,16 @@ router.post('/import-osm', authMiddleware, async (req, res) => {
 // 3. ADMIN: Add a new place with itinerary
 router.post('/', authMiddleware, upload.single('photoFile'), (req, res) => {
   try {
-    const name = fixUtf8(req.body.name);
+    const name = req.body.name;
     const category = req.body.category || 'patrimoine';
-    const desc_fr = fixUtf8(req.body.desc_fr);
-    const desc_mg = fixUtf8(req.body.desc_mg);
-    const desc_en = fixUtf8(req.body.desc_en);
-    const price_indicative = fixUtf8(req.body.price_indicative);
-    const contact = fixUtf8(req.body.contact);
-    const distance_km = fixUtf8(req.body.distance_km);
-    const travel_time = fixUtf8(req.body.travel_time);
-    const itinerary_steps = fixUtf8(req.body.itinerary_steps);
+    const desc_fr = req.body.desc_fr;
+    const desc_mg = req.body.desc_mg;
+    const desc_en = req.body.desc_en;
+    const price_indicative = req.body.price_indicative;
+    const contact = req.body.contact;
+    const distance_km = req.body.distance_km;
+    const travel_time = req.body.travel_time;
+    const itinerary_steps = req.body.itinerary_steps;
     const lat = parseFloat(req.body.lat) || -21.4536;
     const lng = parseFloat(req.body.lng) || 47.0858;
     const rating = parseFloat(req.body.rating) || 4.7;
@@ -260,16 +248,16 @@ router.put('/:id', authMiddleware, upload.single('photoFile'), (req, res) => {
     const existing = db.prepare('SELECT * FROM places WHERE id = ?').get(id);
     if (!existing) return res.status(404).json({ error: 'Lieu introuvable.' });
 
-    const name = fixUtf8(req.body.name) || existing.name;
+    const name = req.body.name || existing.name;
     const category = req.body.category || existing.category;
-    const desc_fr = fixUtf8(req.body.desc_fr) !== undefined ? fixUtf8(req.body.desc_fr) : existing.desc_fr;
-    const desc_mg = fixUtf8(req.body.desc_mg) !== undefined ? fixUtf8(req.body.desc_mg) : existing.desc_mg;
-    const desc_en = fixUtf8(req.body.desc_en) !== undefined ? fixUtf8(req.body.desc_en) : existing.desc_en;
-    const price_indicative = fixUtf8(req.body.price_indicative) !== undefined ? fixUtf8(req.body.price_indicative) : existing.price_indicative;
-    const contact = fixUtf8(req.body.contact) !== undefined ? fixUtf8(req.body.contact) : existing.contact;
-    const distance_km = fixUtf8(req.body.distance_km) !== undefined ? fixUtf8(req.body.distance_km) : existing.distance_km;
-    const travel_time = fixUtf8(req.body.travel_time) !== undefined ? fixUtf8(req.body.travel_time) : existing.travel_time;
-    const itinerary_steps = fixUtf8(req.body.itinerary_steps) !== undefined ? fixUtf8(req.body.itinerary_steps) : existing.itinerary_steps;
+    const desc_fr = req.body.desc_fr !== undefined ? req.body.desc_fr : existing.desc_fr;
+    const desc_mg = req.body.desc_mg !== undefined ? req.body.desc_mg : existing.desc_mg;
+    const desc_en = req.body.desc_en !== undefined ? req.body.desc_en : existing.desc_en;
+    const price_indicative = req.body.price_indicative !== undefined ? req.body.price_indicative : existing.price_indicative;
+    const contact = req.body.contact !== undefined ? req.body.contact : existing.contact;
+    const distance_km = req.body.distance_km !== undefined ? req.body.distance_km : existing.distance_km;
+    const travel_time = req.body.travel_time !== undefined ? req.body.travel_time : existing.travel_time;
+    const itinerary_steps = req.body.itinerary_steps !== undefined ? req.body.itinerary_steps : existing.itinerary_steps;
     const lat = req.body.lat !== undefined ? parseFloat(req.body.lat) : existing.lat;
     const lng = req.body.lng !== undefined ? parseFloat(req.body.lng) : existing.lng;
     const rating = req.body.rating !== undefined ? parseFloat(req.body.rating) : existing.rating;

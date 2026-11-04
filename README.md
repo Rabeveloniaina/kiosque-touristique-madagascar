@@ -352,9 +352,11 @@ M1/
 - Vérifiez la configuration Multer dans `server/src/routes/ads.js`
 - URL attendue : `http://localhost:5000/uploads/nom-fichier.jpg`
 
-### Les caractères accentués s'affichent mal (???)
-- Cause : Multer décode le multipart en `latin1` par défaut
-- Solution appliquée : `fixUtf8(str)` dans chaque route (`Buffer.from(s, 'latin1').toString('utf8')`)
+### Les caractères accentués s'affichent mal (� / ?)
+- Cause historique : l'ancienne fonction `fixUtf8` convertissait en `latin1 -> UTF-8` des chaînes déjà correctes, produisant le caractère de remplacement `U+FFFD` (`�`).
+- Correction : `fixUtf8` a été supprimée ; Multer/busboy 1.6 décode déjà les champs multipart en UTF-8.
+- Données déjà corrompues : lancer `node server/scripts/repair-utf8.js` (les valeurs ciblées sont réécrites, avec un mode `--dry-run`).
+- Garde-fou : au démarrage, le serveur logue un avertissement si des valeurs `U+FFFD` subsistent en base.
 
 ### Erreur `table places has no column named photo_url`
 - La DB existante n'a pas la colonne

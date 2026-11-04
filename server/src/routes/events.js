@@ -3,17 +3,6 @@ const router = express.Router();
 const db = require('../db/database');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 
-function fixUtf8(str) {
-  if (!str || typeof str !== 'string') return str || '';
-  if (/[\xC2-\xC3][\x80-\xBF]/.test(str)) {
-    try {
-      const decoded = Buffer.from(str, 'latin1').toString('utf8');
-      if (!decoded.includes('\uFFFD')) return decoded;
-    } catch {}
-  }
-  return str;
-}
-
 // 1. PUBLIC: Get events for active city (with is_expired flag)
 router.get('/', (req, res) => {
   try {
@@ -37,13 +26,13 @@ router.get('/', (req, res) => {
 // 2. ADMIN: Add an event (prevents past dates!)
 router.post('/', authMiddleware, (req, res) => {
   try {
-    const title_fr = fixUtf8(req.body.title_fr);
-    const title_mg = fixUtf8(req.body.title_mg);
-    const title_en = fixUtf8(req.body.title_en);
-    const description_fr = fixUtf8(req.body.description_fr);
-    const location = fixUtf8(req.body.location);
+    const title_fr = req.body.title_fr;
+    const title_mg = req.body.title_mg;
+    const title_en = req.body.title_en;
+    const description_fr = req.body.description_fr;
+    const location = req.body.location;
     const event_date = req.body.event_date;
-    const event_time = fixUtf8(req.body.event_time) || '10h00';
+    const event_time = req.body.event_time || '10h00';
     const lat = parseFloat(req.body.lat) || -21.4536;
     const lng = parseFloat(req.body.lng) || 47.0858;
     const city = req.body.city || db.getActiveCityConfig().active_city;
@@ -87,13 +76,13 @@ router.post('/', authMiddleware, (req, res) => {
 router.put('/:id', authMiddleware, (req, res) => {
   try {
     const { id } = req.params;
-    const title_fr = fixUtf8(req.body.title_fr);
-    const title_mg = fixUtf8(req.body.title_mg);
-    const title_en = fixUtf8(req.body.title_en);
-    const description_fr = fixUtf8(req.body.description_fr);
-    const location = fixUtf8(req.body.location);
+    const title_fr = req.body.title_fr;
+    const title_mg = req.body.title_mg;
+    const title_en = req.body.title_en;
+    const description_fr = req.body.description_fr;
+    const location = req.body.location;
     const event_date = req.body.event_date;
-    const event_time = fixUtf8(req.body.event_time);
+    const event_time = req.body.event_time;
     const lat = parseFloat(req.body.lat) || -21.4536;
     const lng = parseFloat(req.body.lng) || 47.0858;
 

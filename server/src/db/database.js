@@ -710,6 +710,30 @@ function seedPlacesDirectory() {
 
 initDatabase();
 
+// Warn at startup if legacy U+FFFD replacement characters are still stored.
+// They indicate data corrupted by the old latin1 -> utf8 conversion bug.
+function checkForCorruptedText() {
+  const replacementChar = '\uFFFD';
+  const tables = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .all();
+
+  for (const { name } of tables) {
+    const rows = db.prepare(`SELECT * FROM ${name}`).all();
+    let count = 0;
+    for (const row of rows) {
+      for (const value of Object.values(row)) {
+        if (typeof value === 'string' && value.includes(replacementChar)) count += 1;
+      }
+    }
+    if (count > 0) {
+      console.warn(`[KIOSK DB] ⚠ ${name}: ${count} valeur(s) contiennent U+FFFD (encodage corrompu).`);
+    }
+  }
+}
+
+checkForCorruptedText();
+
 function getActiveCityConfig() {
   const rows = db.prepare('SELECT key, value FROM kiosk_config').all();
   const cfg = {

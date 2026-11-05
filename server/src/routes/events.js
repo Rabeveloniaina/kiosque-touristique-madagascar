@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
       SELECT *, 
         CASE WHEN event_date < ? THEN 1 ELSE 0 END as is_expired
       FROM events
-      WHERE city = ?
+      WHERE LOWER(city) = LOWER(?)
       ORDER BY event_date ASC
     `).all(today, activeCity);
 
@@ -33,12 +33,16 @@ router.post('/', authMiddleware, (req, res) => {
     const location = req.body.location;
     const event_date = req.body.event_date;
     const event_time = req.body.event_time || '10h00';
-    const lat = parseFloat(req.body.lat) || -21.4536;
-    const lng = parseFloat(req.body.lng) || 47.0858;
-    const city = req.body.city || db.getActiveCityConfig().active_city;
+    const activeConfig = db.getActiveCityConfig();
+    const lat = parseFloat(req.body.lat) || activeConfig.active_lat || -18.7669;
+    const lng = parseFloat(req.body.lng) || activeConfig.active_lng || 46.8691;
+    const city = String(req.body.city || activeConfig.active_city || '').trim();
 
     if (!title_fr || !location || !event_date) {
       return res.status(400).json({ error: 'Titre, lieu et date sont obligatoires.' });
+    }
+    if (!city) {
+      return res.status(400).json({ error: 'Aucune ville active. Choisissez d’abord une ville pour le kiosque.' });
     }
 
     // Validation: prevent adding event in the past
@@ -66,6 +70,7 @@ router.post('/', authMiddleware, (req, res) => {
     );
 
     const newEvent = db.prepare('SELECT * FROM events WHERE id = ?').get(result.lastInsertRowid);
+    db.upsertCity({ name: city, lat, lng });
     res.status(201).json(newEvent);
   } catch (err) {
     res.status(500).json({ error: 'Erreur création événement.' });
@@ -76,6 +81,9 @@ router.post('/', authMiddleware, (req, res) => {
 router.put('/:id', authMiddleware, (req, res) => {
   try {
     const { id } = req.params;
+    const existing = db.prepare('SELECT * FROM events WHERE id = ?').get(id);
+    if (!existing) return res.status(404).json({ error: 'Événement introuvable.' });
+
     const title_fr = req.body.title_fr;
     const title_mg = req.body.title_mg;
     const title_en = req.body.title_en;
@@ -83,8 +91,12 @@ router.put('/:id', authMiddleware, (req, res) => {
     const location = req.body.location;
     const event_date = req.body.event_date;
     const event_time = req.body.event_time;
-    const lat = parseFloat(req.body.lat) || -21.4536;
-    const lng = parseFloat(req.body.lng) || 47.0858;
+    const lat = req.body.lat !== undefined && req.body.lat !== ''
+      ? parseFloat(req.body.lat)
+      : existing.lat;
+    const lng = req.body.lng !== undefined && req.body.lng !== ''
+      ? parseFloat(req.body.lng)
+      : existing.lng;
 
     db.prepare(`
       UPDATE events

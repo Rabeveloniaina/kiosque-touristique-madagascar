@@ -15,8 +15,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Set strict UTF-8 response encoding
-app.use((req, res, next) => {
+// Set strict UTF-8 response encoding for API JSON only (never for /uploads media)
+app.use('/api', (req, res, next) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   next();
 });
@@ -43,6 +43,7 @@ const placesRoutes = require('./routes/places');
 const eventsRoutes = require('./routes/events');
 const emergencyRoutes = require('./routes/emergency');
 const configRoutes = require('./routes/config');
+const phrasesRoutes = require('./routes/phrases');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/ads', adsRoutes);
@@ -51,12 +52,13 @@ app.use('/api/places', placesRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/phrases', phrasesRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    kiosk: 'Fianarantsoa Interactive Kiosk API',
+    kiosk: 'Madagascar Interactive Tourism Kiosk API',
     uploadsDir: uploadsDir,
     timestamp: new Date().toISOString()
   });

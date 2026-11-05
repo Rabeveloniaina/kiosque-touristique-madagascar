@@ -4,8 +4,8 @@
  * calculating the route from the user's current location to the target destination.
  */
 export function getDirectionsUrl(lat, lng, name = '') {
-  const safeLat = parseFloat(lat) || -21.4536;
-  const safeLng = parseFloat(lng) || 47.0858;
+  const safeLat = parseFloat(lat) || -18.7669;
+  const safeLng = parseFloat(lng) || 46.8691;
   const placeParam = name ? `&destination_place_id=${encodeURIComponent(name)}` : '';
   return `https://www.google.com/maps/dir/?api=1&destination=${safeLat},${safeLng}${placeParam}&travelmode=driving`;
 }

@@ -4,7 +4,6 @@ import {
   Phone, Heart, Building2, Search, ChevronRight, AlertTriangle,
   Navigation, Info, Sparkles
 } from 'lucide-react';
-import { mockEmergency } from '../../data/mockData';
 import { translations } from '../../data/translations';
 import { api } from '../../services/api';
 import { getQrCodeImageUrl } from '../../utils/navigation';
@@ -86,13 +85,11 @@ export default function EmergencyModuleView({ currentLang, kioskConfig }) {
         const data = await api.getEmergency();
         if (data && data.length > 0) {
           setContacts(data);
-        } else if (cityName === 'Fianarantsoa') {
-          setContacts(mockEmergency);
         } else {
           setContacts([]);
         }
       } catch {
-        setContacts(cityName === 'Fianarantsoa' ? mockEmergency : []);
+        setContacts([]);
       } finally {
         setLoading(false);
       }

@@ -10,45 +10,6 @@ import { analytics } from '../../services/analytics';
 import { getQrCodeImageUrl } from '../../utils/navigation';
 import ItineraryPreviewModal from '../../components/ItineraryPreviewModal';
 
-// Données de secours hors-ligne
-const FALLBACK_PLACES = [
-  {
-    id: 'cotso', category: 'hotel', name: 'Hôtel Cotsoyannis',
-    desc_fr: 'Bâtisse pleine de charme au cœur de la ville basse, proche de la gare FCE.',
-    price_indicative: 'À partir de 95 000 Ar/nuit',
-    contact: '+261 20 75 514 86', rating: 4.6,
-    lat: -21.4545, lng: 47.0865
-  },
-  {
-    id: 'saham', category: 'hotel', name: 'Lac Hôtel Sahambavy',
-    desc_fr: 'Bungalows sur pilotis au bord du lac, proche des plantations de thé.',
-    price_indicative: 'À partir de 180 000 Ar/nuit',
-    contact: '+261 34 02 048 55', rating: 4.9,
-    lat: -21.4833, lng: 47.2167
-  },
-  {
-    id: 'riziere', category: 'restaurant', name: 'Restaurant La Rizière',
-    desc_fr: "Restaurant d'application avec vue imprenable sur les rizières en terrasses.",
-    price_indicative: 'Plats de 18 000 à 45 000 Ar',
-    contact: '+261 34 11 254 78', rating: 4.7,
-    lat: -21.4510, lng: 47.0850
-  },
-  {
-    id: 'guides', category: 'guide', name: 'Association des Guides de la Haute-Ville',
-    desc_fr: "Visite guidée à pied des ruelles pavées, des 6 églises et points de vue historiques.",
-    price_indicative: 'Circuit guidé dès 25 000 Ar/pers.',
-    contact: '+261 34 90 112 33', rating: 4.8,
-    lat: -21.4530, lng: 47.0862
-  },
-  {
-    id: 'transport', category: 'transport', name: 'Coopérative Régionale Transport Fiana',
-    desc_fr: "Liaisons vers le Parc de Ranomafana, Ambalavao et l'Andringitra.",
-    price_indicative: 'Location 4x4 avec chauffeur ou taxi',
-    contact: '+261 32 04 998 12', rating: 4.5,
-    lat: -21.4540, lng: 47.0880
-  }
-];
-
 const CATEGORY_FILTERS = [
   { id: 'all',        label: 'Tous les établissements', icon: Landmark,        color: 'text-amber-400' },
   { id: 'hotel',      label: 'Hôtels & Auberges',       icon: Bed,             color: 'text-sky-400' },
@@ -89,7 +50,7 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
   const [expandedQr, setExpandedQr] = useState(null);
   const [selectedItineraryPlace, setSelectedItineraryPlace] = useState(null);
   const t = translations[currentLang] || translations.fr;
-  const cityName = kioskConfig?.active_city || 'Fianarantsoa';
+  const cityName = kioskConfig?.active_city || 'Madagascar';
 
   const loadPlaces = async () => {
     setLoading(true);
@@ -99,20 +60,12 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
       if (data && data.length > 0) {
         setPlaces(data);
         setIsOffline(false);
-      } else if (cityName === 'Fianarantsoa') {
-        setPlaces(FALLBACK_PLACES);
-        setIsOffline(true);
       } else {
         setPlaces([]);
         setIsOffline(false);
       }
     } catch {
-      if (cityName === 'Fianarantsoa') {
-        setPlaces(FALLBACK_PLACES);
-        setIsOffline(true);
-      } else {
-        setPlaces([]);
-      }
+      setPlaces([]);
     } finally {
       setLoading(false);
     }

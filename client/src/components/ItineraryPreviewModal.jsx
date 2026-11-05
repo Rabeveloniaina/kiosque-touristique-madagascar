@@ -107,8 +107,8 @@ export default function ItineraryPreviewModal({
   const abortRef = useRef(null);
 
   const cityName = kioskConfig?.active_city || place?.city || 'Madagascar';
-  const kioskLat = parseFloat(kioskConfig?.active_lat) || -21.4536;
-  const kioskLng = parseFloat(kioskConfig?.active_lng) || 47.0858;
+  const kioskLat = parseFloat(kioskConfig?.active_lat) || -18.7669;
+  const kioskLng = parseFloat(kioskConfig?.active_lng) || 46.8691;
 
   // Actual starting point coordinates: custom PC GPS if enabled, otherwise active Kiosk position
   const startLat = customStart ? customStart[0] : kioskLat;

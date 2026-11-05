@@ -30,6 +30,9 @@ yarn-error.log*
 server/uploads/*
 !server/uploads/.gitkeep
 
+# MMS-TTS model cache (re-downloaded automatically, ~38 Mo)
+server/.cache/
+
 # Temporary scratch folders
 scratch/
 */scratch/

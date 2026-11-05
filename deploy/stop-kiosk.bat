@@ -1,6 +1,6 @@
 @echo off
 :: Arrêt propre du kiosque
-title Kiosque Fianarantsoa — Arrêt
+title Kiosque Touristique Madagascar — Arrêt
 echo.
 echo  Arret du kiosque en cours...
 pm2 stop all

@@ -3,14 +3,15 @@ import {
   X, Lock, Megaphone, BarChart3, Settings, Plus, Trash2, Power, 
   Clock, Globe2, Users, Check, AlertCircle, Upload, Link as LinkIcon, 
   MapPin, Calendar, ShieldAlert, Edit, Save, UserPlus, KeyRound,
-  Download, Sparkles, Navigation, Compass, Layers, RefreshCw, Crosshair, Loader2
+  Download, Sparkles, Navigation, Compass, Layers, RefreshCw, Crosshair, Loader2,
+  Languages, Volume2
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 import { analytics } from '../../services/analytics';
 import LocationPickerModal from '../../components/LocationPickerModal';
 
 export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityChanged }) {
-  // Navigation tabs: 'ads' | 'places' | 'events' | 'emergency' | 'config' | 'stats' | 'users'
+  // Navigation tabs: 'ads' | 'places' | 'events' | 'phrases' | 'emergency' | 'config' | 'stats' | 'users'
   const [activeTab, setActiveTab] = useState('ads');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -27,14 +28,31 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const [editingAd, setEditingAd] = useState(null);
   const [isAddingAd, setIsAddingAd] = useState(false);
   const initialAdForm = {
-    title_fr: '', title_mg: '', title_en: '',
+    title_fr: '', title_mg: '',
     subtitle_fr: '', badge: 'À découvrir',
     duration_seconds: 7, mediaMode: 'url',
     media_url: '', mediaFile: null
   };
   const [adForm, setAdForm] = useState(initialAdForm);
 
-  // 2. Places state
+  // 2. Phrases utiles state
+  const [phrases, setPhrases] = useState([]);
+  const [isAddingPhrase, setIsAddingPhrase] = useState(false);
+  const [editingPhrase, setEditingPhrase] = useState(null);
+  const initialPhraseForm = {
+    category: 'salutations',
+    text_mg: '',
+    text_fr: '',
+    text_en: '',
+    pronunciation: '',
+    sort_order: 10,
+    is_active: 1
+  };
+  const [phraseForm, setPhraseForm] = useState(initialPhraseForm);
+  const [phraseBusyId, setPhraseBusyId] = useState(null);
+  const [phraseMsg, setPhraseMsg] = useState('');
+
+  // 3. Places state
   const [places, setPlaces] = useState([]);
   const [isAddingPlace, setIsAddingPlace] = useState(false);
   const [editingPlace, setEditingPlace] = useState(null);
@@ -42,7 +60,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     name: '', category: 'patrimoine',
     desc_fr: '', desc_mg: '', desc_en: '',
     distance_km: '', travel_time: '', itinerary_steps: '',
-    lat: -21.4536, lng: 47.0858, rating: 4.8,
+    lat: -18.7669, lng: 46.8691, rating: 4.8,
     photo_url: '', photoFile: null, photoMode: 'url'
   };
   const [placeForm, setPlaceForm] = useState(initialPlaceForm);
@@ -54,9 +72,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const todayStr = new Date().toISOString().split('T')[0];
   const initialEventForm = {
     title_fr: '', title_mg: '', title_en: '',
-    description_fr: '', location: 'Fianarantsoa',
+    description_fr: '', location: '',
     event_date: todayStr, event_time: '10h00',
-    lat: -21.4536, lng: 47.0858
+    lat: -18.7669, lng: 46.8691
   };
   const [eventForm, setEventForm] = useState(initialEventForm);
 
@@ -65,8 +83,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const [isAddingEmergency, setIsAddingEmergency] = useState(false);
   const [editingEmergency, setEditingEmergency] = useState(null);
   const initialEmergencyForm = {
-    name: '', number: '', address: 'Fianarantsoa', icon: 'ShieldAlert',
-    lat: -21.4536, lng: 47.0858
+    name: '', number: '', address: '', icon: 'ShieldAlert',
+    lat: -18.7669, lng: 46.8691
   };
   const [emergencyForm, setEmergencyForm] = useState(initialEmergencyForm);
 
@@ -80,7 +98,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const [stats, setStats] = useState(null);
 
   // 7. OpenStreetMap / Google Automatic Extractor
-  const [importCity, setImportCity] = useState('Fianarantsoa');
+  const [importCity, setImportCity] = useState('');
   const [isImportingOsm, setIsImportingOsm] = useState(false);
   const [importMsg, setImportMsg] = useState('');
 
@@ -98,6 +116,15 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const [isDeletingCity, setIsDeletingCity] = useState(false);
   const [deleteCityMsg, setDeleteCityMsg] = useState('');
   const [deleteCityError, setDeleteCityError] = useState('');
+
+  // Current kiosk location helpers (no hardcoded city).
+  const activeCityName = kioskConfigData?.active_city || '';
+  const activeLat = Number.isFinite(Number(kioskConfigData?.active_lat))
+    ? Number(kioskConfigData.active_lat)
+    : -18.7669;
+  const activeLng = Number.isFinite(Number(kioskConfigData?.active_lng))
+    ? Number(kioskConfigData.active_lng)
+    : 46.8691;
 
   const handleDeleteCity = async (target) => {
     if (!target) return;
@@ -133,14 +160,15 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   const loadAllData = async () => {
     try {
-      const [allAds, allPlaces, allEvents, allEmergency, currentStats, users, configRes] = await Promise.all([
+      const [allAds, allPlaces, allEvents, allEmergency, currentStats, users, configRes, allPhrases] = await Promise.all([
         api.getAllAds().catch(() => []),
         api.getPlaces().catch(() => []),
         api.getEvents().catch(() => []),
         api.getEmergency().catch(() => []),
         api.getSummaryStats().catch(() => null),
         api.getUsers().catch(() => []),
-        api.getKioskConfig().catch(() => null)
+        api.getKioskConfig().catch(() => null),
+        api.getAllPhrases().catch(() => [])
       ]);
       setAds(allAds || []);
       setPlaces(allPlaces || []);
@@ -148,9 +176,13 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       setEmergencyList(allEmergency || []);
       setStats(currentStats);
       setUsersList(users || []);
+      setPhrases(allPhrases || []);
       if (configRes && configRes.config) {
         setKioskConfigData(configRes.config);
         setAvailableCities(configRes.availableCities || []);
+        if (configRes.config.active_city) {
+          setImportCity((prev) => prev || configRes.config.active_city);
+        }
       }
     } catch (err) {
       console.warn('Erreur chargement données admin', err);
@@ -298,7 +330,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       const formData = new FormData();
       formData.append('title_fr', adForm.title_fr);
       formData.append('title_mg', adForm.title_mg || adForm.title_fr);
-      formData.append('title_en', adForm.title_en || adForm.title_fr);
+      // Le schéma backend conserve title_en pour compatibilité ; il n'est plus exposé.
+      formData.append('title_en', adForm.title_fr);
       formData.append('subtitle_fr', adForm.subtitle_fr || '');
       formData.append('badge', adForm.badge || 'Partenaire');
       formData.append('duration_seconds', adForm.duration_seconds || 7);
@@ -350,7 +383,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       name: '', category: 'patrimoine',
       desc_fr: '', desc_mg: '', desc_en: '',
       distance_km: '', travel_time: '', itinerary_steps: '',
-      lat: -21.4536, lng: 47.0858, rating: 4.8,
+      lat: activeLat, lng: activeLng, rating: 4.8,
       photo_url: '', photoFile: null, photoMode: 'url'
     });
     setIsAddingPlace(true);
@@ -367,8 +400,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       distance_km: place.distance_km || '',
       travel_time: place.travel_time || '',
       itinerary_steps: place.itinerary_steps || '',
-      lat: place.lat || -21.4536,
-      lng: place.lng || 47.0858,
+      lat: place.lat || activeLat,
+      lng: place.lng || activeLng,
       rating: place.rating || 4.8,
       photo_url: place.photo_url || '',
       photoFile: null,
@@ -392,7 +425,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       formData.append('lat', placeForm.lat);
       formData.append('lng', placeForm.lng);
       formData.append('rating', placeForm.rating);
-      formData.append('city', kioskConfigData?.active_city || 'Fianarantsoa');
+      formData.append('city', kioskConfigData?.active_city || '');
 
       if (placeForm.photoMode === 'file' && placeForm.photoFile) {
         formData.append('photoFile', placeForm.photoFile);
@@ -445,9 +478,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     setEditingEvent(null);
     setEventForm({
       title_fr: '', title_mg: '', title_en: '',
-      description_fr: '', location: 'Fianarantsoa',
+      description_fr: '', location: activeCityName,
       event_date: todayStr, event_time: '10h00',
-      lat: -21.4536, lng: 47.0858
+      lat: activeLat, lng: activeLng
     });
     setIsAddingEvent(true);
   };
@@ -462,8 +495,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       location: evt.location,
       event_date: evt.event_date,
       event_time: evt.event_time || '10h00',
-      lat: evt.lat || -21.4536,
-      lng: evt.lng || 47.0858
+      lat: evt.lat || activeLat,
+      lng: evt.lng || activeLng
     });
     setIsAddingEvent(true);
   };
@@ -475,7 +508,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       return;
     }
     try {
-      const payload = { ...eventForm, city: kioskConfigData?.active_city || 'Fianarantsoa' };
+      const payload = { ...eventForm, city: kioskConfigData?.active_city || '' };
       if (editingEvent) {
         await api.updateEvent(editingEvent.id, payload);
       } else {
@@ -503,8 +536,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const handleOpenAddEmergency = () => {
     setEditingEmergency(null);
     setEmergencyForm({
-      name: '', number: '', address: 'Fianarantsoa', icon: 'ShieldAlert',
-      lat: -21.4536, lng: 47.0858
+      name: '', number: '', address: activeCityName, icon: 'ShieldAlert',
+      lat: activeLat, lng: activeLng
     });
     setIsAddingEmergency(true);
   };
@@ -516,8 +549,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       number: item.number,
       address: item.address || '',
       icon: item.icon || 'ShieldAlert',
-      lat: item.lat || -21.4536,
-      lng: item.lng || 47.0858
+      lat: item.lat || activeLat,
+      lng: item.lng || activeLng
     });
     setIsAddingEmergency(true);
   };
@@ -525,7 +558,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const handleSaveEmergency = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...emergencyForm, city: kioskConfigData?.active_city || 'Fianarantsoa' };
+      const payload = { ...emergencyForm, city: kioskConfigData?.active_city || '' };
       if (editingEmergency) {
         await api.updateEmergency(editingEmergency.id, payload);
       } else {
@@ -547,6 +580,146 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       const updated = await api.getEmergency();
       setEmergencyList(updated);
     }
+  };
+
+  // --- PHRASES UTILES ACTIONS ---
+  const refreshPhrases = async () => {
+    const list = await api.getAllPhrases();
+    setPhrases(list || []);
+  };
+
+  const handleOpenAddPhrase = () => {
+    setEditingPhrase(null);
+    setPhraseForm(initialPhraseForm);
+    setPhraseMsg('');
+    setIsAddingPhrase(true);
+  };
+
+  const handleEditPhrase = (phrase) => {
+    setEditingPhrase(phrase);
+    setPhraseForm({
+      category: phrase.category || 'salutations',
+      text_mg: phrase.text_mg || '',
+      text_fr: phrase.text_fr || '',
+      text_en: phrase.text_en || '',
+      pronunciation: phrase.pronunciation || '',
+      sort_order: phrase.sort_order || 10,
+      is_active: phrase.is_active === 1 ? 1 : 0
+    });
+    setPhraseMsg('');
+    setIsAddingPhrase(true);
+  };
+
+  const handleSavePhrase = async (e) => {
+    e.preventDefault();
+    setPhraseMsg('');
+    const wasEditing = Boolean(editingPhrase);
+    try {
+      const payload = {
+        ...phraseForm,
+        sort_order: parseInt(phraseForm.sort_order, 10) || 0,
+        is_active: phraseForm.is_active ? 1 : 0
+      };
+
+      if (wasEditing) {
+        await api.updatePhrase(editingPhrase.id, payload);
+      } else {
+        await api.createPhrase(payload);
+      }
+
+      await refreshPhrases();
+      setIsAddingPhrase(false);
+      setEditingPhrase(null);
+      setPhraseForm(initialPhraseForm);
+      setPhraseMsg(wasEditing ? '✅ Phrase mise à jour avec succès.' : '✅ Phrase ajoutée avec succès.');
+    } catch (err) {
+      setPhraseMsg('❌ ' + err.message);
+    }
+  };
+
+  const handleDeletePhrase = async (phrase) => {
+    if (!confirm(`Supprimer la phrase « ${phrase.text_mg} » et son audio ?`)) return;
+    try {
+      await api.deletePhrase(phrase.id);
+      await refreshPhrases();
+      setPhraseMsg('✅ Phrase supprimée.');
+    } catch (err) {
+      setPhraseMsg('❌ ' + err.message);
+    }
+  };
+
+  const handleTogglePhrase = async (phrase) => {
+    try {
+      await api.updatePhrase(phrase.id, { is_active: phrase.is_active === 1 ? 0 : 1 });
+      await refreshPhrases();
+    } catch (err) {
+      setPhraseMsg('❌ ' + err.message);
+    }
+  };
+
+  const handleGeneratePhraseAudio = async (phrase) => {
+    setPhraseBusyId(phrase.id);
+    setPhraseMsg(`⏳ Génération MMS en cours pour « ${phrase.text_mg} »... Le premier lancement télécharge le modèle (~38 Mo).`);
+    try {
+      await api.generatePhraseAudio(phrase.id);
+      await refreshPhrases();
+      setPhraseMsg('✅ Audio MMS malgache généré avec succès.');
+    } catch (err) {
+      setPhraseMsg('❌ ' + err.message);
+    } finally {
+      setPhraseBusyId(null);
+    }
+  };
+
+  const handleGenerateMissingPhraseAudios = async () => {
+    setPhraseBusyId('all');
+    setPhraseMsg('⏳ Génération des audios manquants... Le premier lancement peut prendre plusieurs minutes (modèle ~38 Mo).');
+    try {
+      const res = await api.generateMissingPhraseAudios();
+      await refreshPhrases();
+      setPhraseMsg(
+        res.skipped
+          ? '✅ Toutes les phrases disposent déjà d’un audio.'
+          : `✅ ${res.generated.length} audio(s) MMS généré(s).`
+      );
+    } catch (err) {
+      setPhraseMsg('❌ ' + err.message);
+    } finally {
+      setPhraseBusyId(null);
+    }
+  };
+
+  const handleUploadPhraseAudio = async (phrase, file) => {
+    if (!file) return;
+    setPhraseBusyId(phrase.id);
+    setPhraseMsg(`⏳ Téléversement de l’audio pour « ${phrase.text_mg} »...`);
+    try {
+      await api.uploadPhraseAudio(phrase.id, file);
+      await refreshPhrases();
+      setPhraseMsg('✅ Fichier audio téléversé avec succès.');
+    } catch (err) {
+      setPhraseMsg('❌ ' + err.message);
+    } finally {
+      setPhraseBusyId(null);
+    }
+  };
+
+  const handleDeletePhraseAudio = async (phrase) => {
+    if (!confirm(`Supprimer l’audio de la phrase « ${phrase.text_mg} » ?`)) return;
+    try {
+      await api.deletePhraseAudio(phrase.id);
+      await refreshPhrases();
+      setPhraseMsg('✅ Audio supprimé.');
+    } catch (err) {
+      setPhraseMsg('❌ ' + err.message);
+    }
+  };
+
+  const playPhraseAudio = (phrase) => {
+    const url = resolveMediaUrl(phrase.audio_url || phrase.audio_key);
+    if (!url) return;
+    const audio = new Audio(url);
+    audio.play().catch(() => setPhraseMsg('❌ Impossible de lire cet audio.'));
   };
 
   // --- USERS ACTIONS ---
@@ -671,6 +844,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 { id: 'ads', label: 'Publicités Veille', icon: Megaphone, count: ads.length },
                 { id: 'places', label: 'Carte & Établissements', icon: MapPin, count: places.length },
                 { id: 'events', label: 'Événements & Météo', icon: Calendar, count: events.length },
+                { id: 'phrases', label: 'Phrases utiles', icon: Languages, count: phrases.length },
                 { id: 'emergency', label: 'Urgences & Infos', icon: ShieldAlert, count: emergencyList.length },
                 { id: 'config', label: 'Emplacement & Ville', icon: Compass, count: availableCities.length },
                 { id: 'stats', label: 'Statistiques Avancées', icon: BarChart3 },
@@ -733,9 +907,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                   {isAddingAd && (
                     <form onSubmit={handleSaveAd} className="bg-slate-950 border-2 border-amber-500/50 rounded-2xl p-6 mb-6 shadow-xl">
                       <h4 className="font-bold text-amber-400 mb-4">{editingAd ? 'Modifier la publicité' : 'Nouvelle Publicité'}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Titre Français *</label>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Titre principal *</label>
                           <input
                             type="text"
                             required
@@ -745,20 +919,11 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Titre Malagasy</label>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Titre secondaire</label>
                           <input
                             type="text"
                             value={adForm.title_mg}
                             onChange={(e) => setAdForm({ ...adForm, title_mg: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Titre Anglais</label>
-                          <input
-                            type="text"
-                            value={adForm.title_en}
-                            onChange={(e) => setAdForm({ ...adForm, title_en: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
                           />
                         </div>
@@ -858,7 +1023,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                             alt={ad.title_fr}
                             className="w-28 h-24 object-cover rounded-xl bg-slate-900 border border-slate-800 flex-shrink-0"
                             onError={(e) => {
-                              e.target.src = 'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=300';
+                              e.target.style.display = 'none';
                             }}
                           />
                           <div className="flex-1">
@@ -866,6 +1031,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                               {ad.badge}
                             </span>
                             <h4 className="text-base font-bold text-white mt-1">{ad.title_fr}</h4>
+                            {ad.title_mg && ad.title_mg !== ad.title_fr && (
+                              <p className="text-xs font-semibold text-amber-200/80 mt-0.5">{ad.title_mg}</p>
+                            )}
                             <p className="text-xs text-slate-400">{ad.subtitle_fr}</p>
                             <span className="text-[11px] text-amber-300/80 font-mono mt-1 block">
                               Durée : {ad.duration_seconds}s
@@ -890,8 +1058,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                                 setEditingAd(ad);
                                 setAdForm({
                                   title_fr: ad.title_fr,
-                                  title_mg: ad.title_mg,
-                                  title_en: ad.title_en,
+                                  title_mg: ad.title_mg && ad.title_mg !== ad.title_fr ? ad.title_mg : '',
                                   subtitle_fr: ad.subtitle_fr || '',
                                   badge: ad.badge || '',
                                   duration_seconds: ad.duration_seconds || 7,
@@ -921,7 +1088,313 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 2. CARTE & ITINÉRAIRES TAB (With Map Picker & Reset) */}
+              {/* 2. PHRASES UTILES TAB */}
+              {activeTab === 'phrases' && (
+                <div>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+                    <div>
+                      <h3 className="text-xl font-black">Gestion des Phrases Utiles</h3>
+                      <p className="text-xs text-slate-400">
+                        Ajoutez, modifiez, activez ou supprimez les expressions du module trilingue. Générez l’audio malgache avec MMS-TTS (Meta).
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={handleGenerateMissingPhraseAudios}
+                        disabled={phraseBusyId !== null}
+                        className="flex items-center space-x-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl text-xs uppercase"
+                      >
+                        {phraseBusyId === 'all' ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
+                        <span>{phraseBusyId === 'all' ? 'Génération en cours...' : 'Générer les audios manquants'}</span>
+                      </button>
+
+                      {isAddingPhrase ? (
+                        <button
+                          onClick={() => {
+                            setIsAddingPhrase(false);
+                            setEditingPhrase(null);
+                          }}
+                          className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs uppercase"
+                        >
+                          <X className="w-4 h-4 text-rose-400" />
+                          <span>Fermer le formulaire</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleOpenAddPhrase}
+                          className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs uppercase"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Ajouter une phrase</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {phraseMsg && (
+                    <div
+                      className={`mb-4 px-4 py-3 rounded-xl text-xs font-semibold border ${
+                        phraseMsg.startsWith('❌')
+                          ? 'bg-rose-950/50 border-rose-500/40 text-rose-200'
+                          : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+                      }`}
+                    >
+                      {phraseMsg}
+                    </div>
+                  )}
+
+                  {isAddingPhrase && (
+                    <form onSubmit={handleSavePhrase} className="bg-slate-950 border-2 border-purple-500/50 rounded-2xl p-6 mb-6 shadow-xl">
+                      <h4 className="font-bold text-purple-300 mb-4">
+                        {editingPhrase ? 'Modifier la phrase' : 'Nouvelle phrase utile'}
+                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div className="md:col-span-2">
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Catégorie</label>
+                          <select
+                            value={phraseForm.category}
+                            onChange={(e) => setPhraseForm({ ...phraseForm, category: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                          >
+                            <option value="salutations">👋 Salutations</option>
+                            <option value="restauration">🍽️ Restauration</option>
+                            <option value="transport">🚕 Transport</option>
+                            <option value="urgences">🆘 Urgences</option>
+                            <option value="commerce">🛍️ Commerce</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Ordre d’affichage</label>
+                          <input
+                            type="number"
+                            value={phraseForm.sort_order}
+                            onChange={(e) => setPhraseForm({ ...phraseForm, sort_order: e.target.value })}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                        <div className="flex items-end pb-2">
+                          <label className="flex items-center space-x-2 text-xs font-bold text-slate-300 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(phraseForm.is_active)}
+                              onChange={(e) => setPhraseForm({ ...phraseForm, is_active: e.target.checked ? 1 : 0 })}
+                              className="w-4 h-4 accent-emerald-500"
+                            />
+                            <span>Phrase active</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="text-xs text-slate-400 font-bold block mb-1">Phrase en malgache *</label>
+                        <input
+                          type="text"
+                          required
+                          value={phraseForm.text_mg}
+                          onChange={(e) => setPhraseForm({ ...phraseForm, text_mg: e.target.value })}
+                          placeholder="Ex : Misaotra betsaka"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Si vous modifiez cette phrase, pensez à régénérer son audio MMS.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Traduction française</label>
+                          <input
+                            type="text"
+                            value={phraseForm.text_fr}
+                            onChange={(e) => setPhraseForm({ ...phraseForm, text_fr: e.target.value })}
+                            placeholder="Ex : Merci beaucoup"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Traduction anglaise</label>
+                          <input
+                            type="text"
+                            value={phraseForm.text_en}
+                            onChange={(e) => setPhraseForm({ ...phraseForm, text_en: e.target.value })}
+                            placeholder="Ex : Thank you very much"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-5">
+                        <label className="text-xs text-slate-400 font-bold block mb-1">Prononciation phonétique</label>
+                        <input
+                          type="text"
+                          value={phraseForm.pronunciation}
+                          onChange={(e) => setPhraseForm({ ...phraseForm, pronunciation: e.target.value })}
+                          placeholder="Ex : Mee-sow-trah bet-sah-kah"
+                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs uppercase"
+                      >
+                        {editingPhrase ? 'Mettre à jour la phrase' : 'Enregistrer la phrase'}
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {phrases.map((phrase) => {
+                      const busy = phraseBusyId === phrase.id;
+                      const hasAudio = Boolean(phrase.audio_url || phrase.audio_key);
+
+                      return (
+                        <div
+                          key={phrase.id}
+                          className={`bg-slate-950 border-2 rounded-2xl p-4 flex flex-col justify-between ${
+                            phrase.is_active === 1 ? 'border-slate-800' : 'border-slate-800/40 opacity-60'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-purple-400/20 text-purple-300">
+                                {phrase.category || 'salutations'}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-500">#{phrase.id} · ordre {phrase.sort_order}</span>
+                            </div>
+
+                            <h4 className="text-lg font-black text-white mt-2">{phrase.text_mg}</h4>
+
+                            {phrase.pronunciation && (
+                              <p className="text-[11px] text-amber-300/80 italic mt-0.5">{phrase.pronunciation}</p>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-xs">
+                              <div className="bg-slate-900/70 rounded-lg px-2.5 py-2 border border-slate-800">
+                                <span className="text-slate-500 font-bold">FR · </span>
+                                <span className="text-slate-300">{phrase.text_fr || '—'}</span>
+                              </div>
+                              <div className="bg-slate-900/70 rounded-lg px-2.5 py-2 border border-slate-800">
+                                <span className="text-slate-500 font-bold">EN · </span>
+                                <span className="text-slate-300">{phrase.text_en || '—'}</span>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 bg-slate-900 border border-slate-800 rounded-xl p-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center space-x-2 text-[11px] font-semibold">
+                                  <Volume2 className={`w-4 h-4 ${hasAudio ? 'text-emerald-400' : 'text-slate-500'}`} />
+                                  <span className={hasAudio ? 'text-emerald-300' : 'text-slate-500'}>
+                                    {hasAudio ? 'Audio MMS disponible' : 'Aucun fichier audio'}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  {hasAudio && (
+                                    <button
+                                      type="button"
+                                      onClick={() => playPhraseAudio(phrase)}
+                                      className="flex items-center space-x-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold"
+                                    >
+                                      <Volume2 className="w-3.5 h-3.5" />
+                                      <span>Écouter</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGeneratePhraseAudio(phrase)}
+                                    disabled={phraseBusyId !== null}
+                                    className="flex items-center space-x-1 px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg text-[11px] font-bold"
+                                  >
+                                    {busy ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                    )}
+                                    <span>{busy ? 'Génération...' : hasAudio ? 'Régénérer MMS' : 'Générer MMS'}</span>
+                                  </button>
+
+                                  <label
+                                    htmlFor={`phrase-audio-${phrase.id}`}
+                                    className="flex items-center space-x-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                                  >
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>Importer</span>
+                                  </label>
+                                  <input
+                                    id={`phrase-audio-${phrase.id}`}
+                                    type="file"
+                                    accept="audio/*,.mp3,.wav,.ogg,.m4a,.webm,.aac"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      handleUploadPhraseAudio(phrase, e.target.files?.[0]);
+                                      e.target.value = '';
+                                    }}
+                                  />
+
+                                  {hasAudio && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePhraseAudio(phrase)}
+                                      className="p-1.5 text-rose-400 hover:text-rose-300"
+                                      title="Supprimer l’audio"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-xs">
+                            <button
+                              onClick={() => handleTogglePhrase(phrase)}
+                              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold ${
+                                phrase.is_active === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              <Power className="w-3.5 h-3.5" />
+                              <span>{phrase.is_active === 1 ? 'Active' : 'Masquée'}</span>
+                            </button>
+
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleEditPhrase(phrase)}
+                                className="text-amber-400 hover:text-amber-300 p-1.5"
+                                title="Modifier"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeletePhrase(phrase)}
+                                className="text-rose-400 hover:text-rose-300 p-1.5"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {phrases.length === 0 && (
+                    <div className="bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl p-10 text-center text-slate-500 text-sm">
+                      Aucune phrase enregistrée. Cliquez sur « Ajouter une phrase » pour commencer.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. CARTE & ITINÉRAIRES TAB (With Map Picker & Reset) */}
               {activeTab === 'places' && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -975,7 +1448,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         type="text"
                         value={importCity}
                         onChange={(e) => setImportCity(e.target.value)}
-                        placeholder="Ex: Fianarantsoa"
+                        placeholder="Nom de la ville"
                         className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white w-36 focus:outline-none focus:border-blue-400 font-bold"
                       />
                       <button
@@ -1106,7 +1579,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                             {placeForm.photoMode === 'url' ? (
                               <input type="url" value={placeForm.photo_url}
                                 onChange={(e) => setPlaceForm({ ...placeForm, photo_url: e.target.value })}
-                                placeholder="https://images.unsplash.com/..."
+                                placeholder="https://example.com/photo.jpg"
                                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
                               />
                             ) : (
@@ -1163,7 +1636,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           src={place.photo_url}
                           alt={place.name}
                           className="w-24 h-24 object-cover rounded-xl bg-slate-900 border border-slate-800 flex-shrink-0"
-                          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=200'; }}
+                          onError={(e) => { e.target.style.display = 'none'; }}
                         />
                         <div className="flex-1 flex flex-col justify-between">
                           <div>
@@ -1681,10 +2154,10 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         </div>
                         <h2 className="text-3xl font-black text-white flex items-center space-x-3">
                           <Compass className="w-8 h-8 text-amber-400" />
-                          <span>{kioskConfigData?.active_city || 'Fianarantsoa'}</span>
+                          <span>{activeCityName || 'Aucune ville sélectionnée'}</span>
                         </h2>
                         <p className="text-slate-400 text-sm mt-1">
-                          Région : <span className="text-slate-200 font-bold">{kioskConfigData?.active_region || 'Haute Matsiatra'}</span> • Coordonnées GPS : <span className="font-mono text-amber-300">{kioskConfigData?.active_lat}, {kioskConfigData?.active_lng}</span>
+                          Région : <span className="text-slate-200 font-bold">{kioskConfigData?.active_region || '—'}</span> • Coordonnées GPS : <span className="font-mono text-amber-300">{kioskConfigData?.active_lat ?? '—'}, {kioskConfigData?.active_lng ?? '—'}</span>
                         </p>
 
                         {/* Boutons de calibration de la position du PC / Borne */}
@@ -2202,12 +2675,12 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
           initialLat={
             mapPickerTarget === 'places' ? placeForm.lat :
             mapPickerTarget === 'events' ? eventForm.lat :
-            mapPickerTarget === 'emergency' ? emergencyForm.lat : -21.4536
+            mapPickerTarget === 'emergency' ? emergencyForm.lat : activeLat
           }
           initialLng={
             mapPickerTarget === 'places' ? placeForm.lng :
             mapPickerTarget === 'events' ? eventForm.lng :
-            mapPickerTarget === 'emergency' ? emergencyForm.lng : 47.0858
+            mapPickerTarget === 'emergency' ? emergencyForm.lng : activeLng
           }
           onConfirm={handleCoordsPicked}
         />

@@ -27,10 +27,10 @@ export default function App() {
   const [isCameraHudOpen, setIsCameraHudOpen] = useState(false);
   const [adsList, setAdsList] = useState([]);
   const [kioskConfig, setKioskConfig] = useState({
-    active_city: 'Fianarantsoa',
-    active_region: 'Haute Matsiatra',
-    active_lat: -21.4536,
-    active_lng: 47.0858,
+    active_city: '',
+    active_region: '',
+    active_lat: -18.7669,
+    active_lng: 46.8691,
     active_country: 'Madagascar'
   });
   

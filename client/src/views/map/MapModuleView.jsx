@@ -3,7 +3,6 @@ import {
   MapPin, QrCode, Compass, Star, X, Navigation, 
   Clock, Sparkles, Palette, Mountain
 } from 'lucide-react';
-import { mockSites } from '../../data/mockData';
 import { translations } from '../../data/translations';
 import { api } from '../../services/api';
 import { getQrCodeImageUrl } from '../../utils/navigation';
@@ -17,7 +16,7 @@ export default function MapModuleView({ currentLang, onLogItemClick, kioskConfig
   const [showQrModal, setShowQrModal] = useState(false);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const t = translations[currentLang] || translations.fr;
-  const cityName = kioskConfig?.active_city || 'Fianarantsoa';
+  const cityName = kioskConfig?.active_city || 'Madagascar';
 
   useEffect(() => {
     async function loadPlaces() {

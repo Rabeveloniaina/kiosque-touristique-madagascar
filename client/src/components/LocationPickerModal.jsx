@@ -39,8 +39,8 @@ function MapClickHandler({ onLocationSelected }) {
 
 export default function LocationPickerModal({ isOpen, onClose, initialLat, initialLng, onConfirm }) {
   const [position, setPosition] = useState([
-    initialLat || -21.4536,
-    initialLng || 47.0858
+    initialLat || -18.7669,
+    initialLng || 46.8691
   ]);
   const [isLocating, setIsLocating] = useState(false);
   const [geoError, setGeoError] = useState('');
@@ -74,15 +74,6 @@ export default function LocationPickerModal({ isOpen, onClose, initialLat, initi
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
-
-  const presets = [
-    { name: 'Centre-Ville (Gare FCE)', lat: -21.4589, lng: 47.0833 },
-    { name: 'Haute-Ville (Ambozontany)', lat: -21.4536, lng: 47.0858 },
-    { name: 'CHU Tambohobe', lat: -21.4480, lng: 47.0910 },
-    { name: 'Thé Sahambavy', lat: -21.4833, lng: 47.2167 },
-    { name: 'Parc Ranomafana', lat: -21.2583, lng: 47.4208 },
-    { name: 'Vignobles Maromby', lat: -21.4620, lng: 47.0780 }
-  ];
 
   const handleSelectCoords = (lat, lng) => {
     setPosition([Number(lat.toFixed(6)), Number(lng.toFixed(6))]);
@@ -132,19 +123,6 @@ export default function LocationPickerModal({ isOpen, onClose, initialLat, initi
             )}
             <span>{isLocating ? 'Détection GPS en cours…' : 'Ma position GPS (Ce PC)'}</span>
           </button>
-
-          <span className="text-slate-600">|</span>
-          <span className="text-slate-400 font-bold self-center whitespace-nowrap">Repères rapides :</span>
-          {presets.map((preset) => (
-            <button
-              key={preset.name}
-              type="button"
-              onClick={() => handleSelectCoords(preset.lat, preset.lng)}
-              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg whitespace-nowrap active:scale-95 transition"
-            >
-              {preset.name}
-            </button>
-          ))}
         </div>
 
         {geoError && (

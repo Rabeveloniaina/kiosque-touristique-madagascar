@@ -1,4 +1,4 @@
-// PM2 Ecosystem — Kiosque Touristique Fianarantsoa
+// PM2 Ecosystem — Kiosque Touristique Madagascar
 // Utilisation :
 //   pm2 start ecosystem.config.js   (lancement)
 //   pm2 save                         (persistance au redémarrage)
@@ -32,9 +32,9 @@ module.exports = {
     {
       name: 'kiosk-frontend',
       cwd: '../client',
-      script: 'npm',
-      args: 'run preview -- --host --port 3000',
-      interpreter: 'none',   // utilise le npm système
+      script: 'node_modules/vite/bin/vite.js',
+      args: 'preview --host --port 3000',
+      interpreter: 'node',
       instances: 1,
       autorestart: true,
       watch: false,

@@ -35,8 +35,8 @@ export default function WeatherModuleView({ currentLang, kioskConfig }) {
   const [isLoadingWeather, setIsLoadingWeather] = useState(true);
   const [activeEventQr, setActiveEventQr] = useState(null);
   const cityName = kioskConfig?.active_city || 'Madagascar';
-  const lat = kioskConfig?.active_lat ?? -21.4536;
-  const lng = kioskConfig?.active_lng ?? 47.0858;
+  const lat = kioskConfig?.active_lat ?? -18.7669;
+  const lng = kioskConfig?.active_lng ?? 46.8691;
 
   const [weather, setWeather] = useState({
     temp: null,

@@ -6,6 +6,49 @@ const { authMiddleware } = require('../middlewares/authMiddleware');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Overpass API — returns rich OSM tag data (phone, image, website, description…)
+// Much richer than Nominatim extratags for contact & photo retrieval.
+// ─────────────────────────────────────────────────────────────────────────────
+function queryOverpass(overpassQL) {
+  return new Promise((resolve) => {
+    const postData = `data=${encodeURIComponent(overpassQL)}`;
+    const options = {
+      hostname: 'overpass-api.de',
+      path: '/api/interpreter',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(postData),
+        'User-Agent': 'MadagascarTourismKiosk/3.0 (contact@eni.mg)'
+      },
+      timeout: 25000
+    };
+    const request = https.request(options, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        return resolve({ elements: [] });
+      }
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => {
+        try {
+          const raw = Buffer.concat(chunks).toString('utf8');
+          const data = JSON.parse(raw);
+          resolve(data && Array.isArray(data.elements) ? data : { elements: [] });
+        } catch {
+          resolve({ elements: [] });
+        }
+      });
+    });
+    request.on('timeout', () => { request.destroy(); resolve({ elements: [] }); });
+    request.on('error', () => resolve({ elements: [] }));
+    request.write(postData);
+    request.end();
+  });
+}
+
+// Nominatim — kept for city geocoding / reverse geocoding only
 function queryNominatim(queryStr) {
   return new Promise((resolve) => {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(queryStr)}&countrycodes=mg&format=json&addressdetails=1&extratags=1&limit=25`;
@@ -74,9 +117,10 @@ function reverseNominatim(lat, lng) {
   });
 }
 
-// Extract real photograph URL from OpenStreetMap / Wikimedia metadata if available. Never invent fake photos!
-function extractRealPhoto(item) {
-  const tags = item.extratags || {};
+// Extract real photograph URL from OSM tags (Overpass or Nominatim). Never invent fake photos!
+function extractRealPhoto(tags) {
+  // tags can be from Overpass (element.tags) or Nominatim (item.extratags)
+  if (!tags) return '';
   if (tags.image && (tags.image.startsWith('http://') || tags.image.startsWith('https://'))) {
     return tags.image;
   }
@@ -85,6 +129,60 @@ function extractRealPhoto(item) {
     return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(cleanCommons)}?width=800`;
   }
   return '';
+}
+
+// Extract phone from Overpass tags object (much richer than Nominatim)
+function extractPhone(tags) {
+  if (!tags) return '';
+  return (
+    tags.phone ||
+    tags['contact:phone'] ||
+    tags['contact:mobile'] ||
+    tags['phone:mobile'] ||
+    tags['mobile'] ||
+    ''
+  );
+}
+
+// Generate a meaningful, category-aware description — no boilerplate "OSM & Google Maps" text
+function generateDescription(tags, category, cityName) {
+  if (!tags) tags = {};
+  const descFr = tags['description:fr'] || tags.description;
+  if (descFr) return descFr;
+
+  const stars = tags.stars ? ` ${tags.stars} étoile(s).` : '';
+  const cuisine = tags.cuisine ? `, cuisine ${tags.cuisine}` : '';
+  const rooms = tags.rooms ? `, ${tags.rooms} chambres` : '';
+  const capacity = tags.capacity ? `, capacité ${tags.capacity}` : '';
+  const historic = tags.historic;
+  const tourism = tags.tourism;
+  const amenity = tags.amenity;
+  const natural = tags.natural;
+  const leisure = tags.leisure;
+
+  if (category === 'hotel' || tourism === 'hotel') return `Hébergement à ${cityName}.${stars}${rooms}`;
+  if (tourism === 'hostel') return `Auberge de jeunesse à ${cityName}.${rooms}`;
+  if (tourism === 'guest_house') return `Chambre d'hôtes à ${cityName}.${rooms}`;
+  if (category === 'restaurant' || amenity === 'restaurant') return `Restaurant à ${cityName}${cuisine}.`;
+  if (amenity === 'cafe' || category === 'cafe') return `Café et salon de thé à ${cityName}${cuisine}.`;
+  if (amenity === 'bar' || category === 'bar') return `Bar à ${cityName}.`;
+  if (historic === 'monument' || historic === 'memorial') return `Monument historique emblématique de ${cityName}.`;
+  if (historic === 'ruins') return `Ruines historiques à découvrir à ${cityName}.`;
+  if (historic === 'castle') return `Forteresse et patrimoine royal de ${cityName}.`;
+  if (tourism === 'museum') return `Musée et collections culturelles à ${cityName}.`;
+  if (tourism === 'attraction') return `Site touristique incontournable de ${cityName}.`;
+  if (tourism === 'viewpoint') return `Belvédère avec vue panoramique sur ${cityName}.`;
+  if (natural === 'lake' || natural === 'water') return `Plan d'eau naturel aux abords de ${cityName}.`;
+  if (natural === 'hot_spring') return `Sources thermales et détente naturelle à ${cityName}.`;
+  if (natural === 'park' || leisure === 'nature_reserve') return `Espace naturel et biodiversité locale à ${cityName}.`;
+  if (amenity === 'place_of_worship') return `Édifice religieux historique au cœur de ${cityName}.`;
+  if (amenity === 'marketplace' || category === 'marche') return `Marché animé, produits locaux et artisanat de ${cityName}.`;
+  if (amenity === 'station' || tags.railway) return `Gare ferroviaire, point de départ d'excursions depuis ${cityName}.`;
+  if (category === 'nature') return `Site naturel remarquable à ${cityName}.`;
+  if (category === 'patrimoine') return `Site patrimonial et culturel de ${cityName}.`;
+  if (category === 'religieux') return `Lieu de culte et patrimoine religieux de ${cityName}.`;
+  if (category === 'aventure') return `Point d'intérêt et aventure à ${cityName}.`;
+  return `Établissement répertorié à ${cityName}.`;
 }
 
 // Distance in meters between two lat/lng coordinates (Haversine formula)
@@ -114,20 +212,6 @@ function normalizePlaceName(name) {
     .replace(/[^a-z0-9]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-// Extract real phone number from OSM Nominatim result (checks all known fields)
-function extractPhone(item) {
-  const ext = item.extratags || {};
-  return (
-    ext.phone ||
-    ext['contact:phone'] ||
-    ext['contact:mobile'] ||
-    ext['phone:mobile'] ||
-    ext['mobile'] ||
-    item.address?.phone ||
-    ''
-  );
 }
 
 // 1. PUBLIC: Get current active city configuration & all stored cities
@@ -193,35 +277,43 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
     let parsedLng = parseFloat(lng);
     let finalRegion = (region || '').trim();
 
-    // If lat or lng is missing or invalid, resolve from existing places or Nominatim
+    // If lat or lng is missing or invalid, resolve from the registered city or Nominatim
     if (isNaN(parsedLat) || isNaN(parsedLng) || parsedLat === 0) {
-      const existingGeo = db.prepare('SELECT lat, lng FROM places WHERE city = ? AND lat IS NOT NULL AND lat != 0 LIMIT 1').get(city.trim());
-      if (existingGeo) {
-        parsedLat = existingGeo.lat;
-        parsedLng = existingGeo.lng;
+      const registeredCity = db
+        .prepare('SELECT lat, lng, region FROM cities WHERE LOWER(name) = LOWER(?)')
+        .get(city.trim());
+      if (registeredCity && Number.isFinite(registeredCity.lat) && Number.isFinite(registeredCity.lng)) {
+        parsedLat = registeredCity.lat;
+        parsedLng = registeredCity.lng;
+        if (!finalRegion && registeredCity.region) finalRegion = registeredCity.region;
       } else {
-        const geoResults = await queryNominatim(`${city.trim()}, Madagascar`);
-        if (geoResults && geoResults.length > 0) {
-          parsedLat = parseFloat(geoResults[0].lat);
-          parsedLng = parseFloat(geoResults[0].lon);
-          if (!finalRegion) {
-            const addr = geoResults[0].address || {};
-            finalRegion = addr.state_district || addr.region || addr.county || 'Madagascar';
+        const existingGeo = db
+          .prepare('SELECT lat, lng FROM places WHERE LOWER(city) = LOWER(?) AND lat IS NOT NULL AND lat != 0 LIMIT 1')
+          .get(city.trim());
+        if (existingGeo) {
+          parsedLat = existingGeo.lat;
+          parsedLng = existingGeo.lng;
+        } else {
+          const geoResults = await queryNominatim(`${city.trim()}, Madagascar`);
+          if (geoResults && geoResults.length > 0) {
+            parsedLat = parseFloat(geoResults[0].lat);
+            parsedLng = parseFloat(geoResults[0].lon);
+            if (!finalRegion) {
+              const addr = geoResults[0].address || {};
+              finalRegion = addr.state_district || addr.region || addr.county || 'Madagascar';
+            }
           }
         }
       }
     }
 
     if (isNaN(parsedLat) || isNaN(parsedLng)) {
-      parsedLat = -21.4536;
-      parsedLng = 47.0858;
+      parsedLat = -18.7669;
+      parsedLng = 46.8691;
     }
 
     if (!finalRegion) {
-      if (city.trim() === 'Fianarantsoa') finalRegion = 'Haute Matsiatra';
-      else if (city.trim() === 'Manakara') finalRegion = 'Fitovinany';
-      else if (city.trim() === 'Antsirabe') finalRegion = 'Vakinankaratra';
-      else finalRegion = 'Madagascar';
+      finalRegion = 'Madagascar';
     }
 
     // 1. Update active kiosk configuration
@@ -234,57 +326,47 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
     });
 
     // 2. Check existing places and sites for this city
-    const existingPlaces = db.prepare('SELECT count(*) as count FROM places WHERE city = ?').get(city.trim()).count;
-    const existingSites = db.prepare("SELECT count(*) as count FROM places WHERE city = ? AND category NOT IN ('hotel', 'restaurant', 'cafe', 'bar', 'pizzeria', 'auberge', 'snack')").get(city.trim()).count;
-    const existingEmergency = db.prepare('SELECT count(*) as count FROM emergency_contacts WHERE city = ?').get(city.trim()).count;
+    const existingPlaces = db.prepare('SELECT count(*) as count FROM places WHERE LOWER(city) = LOWER(?)').get(city.trim()).count;
+    const existingSites = db.prepare("SELECT count(*) as count FROM places WHERE LOWER(city) = LOWER(?) AND category NOT IN ('hotel', 'restaurant', 'cafe', 'bar', 'pizzeria', 'auberge', 'snack')").get(city.trim()).count;
+    const existingEmergency = db.prepare('SELECT count(*) as count FROM emergency_contacts WHERE LOWER(city) = LOWER(?)').get(city.trim()).count;
 
     let importedCount = 0;
-    // 3. If no places or few tourist sites exist yet for this city, automatically extract from OpenStreetMap with deduplication
+    // 3. If no places or few tourist sites exist yet for this city, automatically extract from OpenStreetMap via Overpass API
     if (existingPlaces === 0 || existingSites < 5) {
-      console.log(`[KIOSK CITY SWITCH] Importing places & tourist sites for city: ${city} (${parsedLat}, ${parsedLng})...`);
+      console.log(`[KIOSK CITY SWITCH] Importing places via Overpass API for: ${city} (${parsedLat}, ${parsedLng})...`);
 
-      const queries = [
-        existingPlaces === 0 ? { key: 'hotels', q: `hotel in ${city}` } : null,
-        existingPlaces === 0 ? { key: 'restos', q: `restaurant in ${city}` } : null,
-        { key: 'gares', q: `gare ${city}` },
-        { key: 'ponts', q: `pont ${city}` },
-        { key: 'canaux', q: `canal ${city}` },
-        { key: 'pangalanes', q: `Pangalanes ${city}` },
-        { key: 'lacs', q: `lac ${city}` },
-        { key: 'thermes', q: `thermes ${city}` },
-        { key: 'parcs', q: `parc ${city}` },
-        { key: 'cathedrales', q: `cathedrale ${city}` },
-        { key: 'eglises', q: `eglise ${city}` },
-        { key: 'monuments', q: `monument ${city}` },
-        { key: 'marches', q: `marche ${city}` },
-        { key: 'aeroport', q: `aeroport ${city}` }
-      ].filter(Boolean);
+      // Overpass query: fetch nodes & ways within 15km radius around city coords
+      const radius = 15000;
+      const overpassQuery = `[out:json][timeout:25];
+(
+  node[tourism=hotel](around:${radius},${parsedLat},${parsedLng});
+  node[tourism=hostel](around:${radius},${parsedLat},${parsedLng});
+  node[tourism=guest_house](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=restaurant](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=cafe](around:${radius},${parsedLat},${parsedLng});
+  node[tourism=attraction](around:${radius},${parsedLat},${parsedLng});
+  node[tourism=museum](around:${radius},${parsedLat},${parsedLng});
+  node[tourism=viewpoint](around:${radius},${parsedLat},${parsedLng});
+  node[historic=monument](around:${radius},${parsedLat},${parsedLng});
+  node[historic=memorial](around:${radius},${parsedLat},${parsedLng});
+  node[historic=ruins](around:${radius},${parsedLat},${parsedLng});
+  node[historic=castle](around:${radius},${parsedLat},${parsedLng});
+  node[natural=lake](around:${radius},${parsedLat},${parsedLng});
+  node[natural=hot_spring](around:${radius},${parsedLat},${parsedLng});
+  node[leisure=park](around:${radius},${parsedLat},${parsedLng});
+  node[leisure=nature_reserve](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=place_of_worship](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=marketplace](around:${radius},${parsedLat},${parsedLng});
+  node[railway=station](around:${radius},${parsedLat},${parsedLng});
+  node[aeroway=aerodrome](around:${radius},${parsedLat},${parsedLng});
+  node[waterway=canal](around:${radius},${parsedLat},${parsedLng});
+  node[bridge=yes](around:${radius},${parsedLat},${parsedLng});
+);
+out body;`;
 
-      const resultsMap = {};
-      for (const item of queries) {
-        try {
-          const res = await queryNominatim(item.q);
-          resultsMap[item.key] = Array.isArray(res) ? res : [];
-        } catch {
-          resultsMap[item.key] = [];
-        }
-        await sleep(100); // 100ms anti-429 throttle
-      }
-
-      const osmHotels = resultsMap.hotels || [];
-      const osmRestos = resultsMap.restos || [];
-      const osmGares = resultsMap.gares || [];
-      const osmPonts = resultsMap.ponts || [];
-      const osmCanaux = resultsMap.canaux || [];
-      const osmPangalanes = resultsMap.pangalanes || [];
-      const osmLacs = resultsMap.lacs || [];
-      const osmThermes = resultsMap.thermes || [];
-      const osmParcs = resultsMap.parcs || [];
-      const osmCathedrales = resultsMap.cathedrales || [];
-      const osmEglises = resultsMap.eglises || [];
-      const osmMonuments = resultsMap.monuments || [];
-      const osmMarches = resultsMap.marches || [];
-      const osmAeroPort = resultsMap.aeroport || [];
+      const overpassResult = await queryOverpass(overpassQuery);
+      const elements = overpassResult.elements || [];
+      console.log(`[KIOSK CITY SWITCH] Overpass returned ${elements.length} elements for ${city}.`);
 
       const insertPlace = db.prepare(`
         INSERT INTO places (
@@ -298,193 +380,72 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
         )
       `);
 
+      // Map Overpass element to our category
+      function mapCategory(tags) {
+        if (!tags) return 'patrimoine';
+        const { tourism, amenity, historic, natural, leisure, railway, aeroway, waterway, bridge } = tags;
+        if (tourism === 'hotel' || tourism === 'hostel' || tourism === 'guest_house') return 'hotel';
+        if (amenity === 'restaurant') return 'restaurant';
+        if (amenity === 'cafe') return 'cafe';
+        if (amenity === 'bar') return 'bar';
+        if (tourism === 'museum') return 'patrimoine';
+        if (tourism === 'attraction' || tourism === 'viewpoint') return 'nature';
+        if (historic) return 'patrimoine';
+        if (natural === 'lake' || natural === 'hot_spring') return 'nature';
+        if (leisure === 'park' || leisure === 'nature_reserve') return 'nature';
+        if (amenity === 'place_of_worship') return 'religieux';
+        if (amenity === 'marketplace') return 'marche';
+        if (railway === 'station') return 'aventure';
+        if (aeroway === 'aerodrome') return 'aventure';
+        if (waterway === 'canal') return 'aventure';
+        if (bridge === 'yes') return 'patrimoine';
+        return 'patrimoine';
+      }
+
+      function defaultPrice(category) {
+        if (category === 'hotel') return 'Tarif selon saison';
+        if (category === 'restaurant' || category === 'cafe' || category === 'bar') return 'Cuisine locale et variée';
+        if (category === 'marche') return 'Achats locaux';
+        return 'Accès libre';
+      }
+
       const candidates = [];
+      for (const el of elements) {
+        const tags = el.tags || {};
+        const rawName = tags['name:fr'] || tags.name || tags['name:mg'] || '';
+        if (!rawName || rawName.length < 2) continue;
+        // Filter out schools, offices, etc.
+        if (/ecole|college|lycee|school|bureau|office|mairie|prefecture/i.test(rawName)) continue;
+        const elLat = el.lat || (el.center && el.center.lat) || null;
+        const elLng = el.lon || (el.center && el.center.lon) || null;
+        if (!elLat || !elLng) continue;
 
-      // Collect hotels
-      for (const h of osmHotels) {
-        const rawName = h.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
+        const category = mapCategory(tags);
+        const descFr = generateDescription(tags, category, city);
+        const phone = extractPhone(tags);
+        const photo_url = extractRealPhoto(tags);
+
         candidates.push({
           rawName,
-          category: 'hotel',
-          lat: parseFloat(h.lat),
-          lng: parseFloat(h.lon),
-          phone: extractPhone(h),
-          photo_url: extractRealPhoto(h),
-          desc_fr: `Hébergement répertorié à ${city} sur OpenStreetMap & Google Maps.`,
-          price: 'Tarif selon saison'
+          category,
+          lat: parseFloat(elLat),
+          lng: parseFloat(elLng),
+          phone,
+          photo_url,
+          desc_fr: descFr,
+          price: defaultPrice(category),
+          tags
         });
       }
 
-      // Collect restaurants
-      for (const r of osmRestos) {
-        const rawName = r.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'restaurant',
-          lat: parseFloat(r.lat),
-          lng: parseFloat(r.lon),
-          phone: extractPhone(r),
-          photo_url: extractRealPhoto(r),
-          desc_fr: `Restaurant et cuisine locale répertoriés à ${city} sur OpenStreetMap.`,
-          price: 'Cuisine locale & variée'
-        });
-      }
-
-      // Gares (Train & transport historique)
-      for (const g of osmGares) {
-        const rawName = g.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'aventure',
-          lat: parseFloat(g.lat),
-          lng: parseFloat(g.lon),
-          phone: extractPhone(g),
-          photo_url: extractRealPhoto(g),
-          desc_fr: `Gare ferroviaire et routière historique de ${city}, point de départ de circuits et découvertes.`,
-          price: 'Accès public / Voyage'
-        });
-      }
-
-      // Ponts remarquables
-      for (const p of osmPonts) {
-        const rawName = p.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'patrimoine',
-          lat: parseFloat(p.lat),
-          lng: parseFloat(p.lon),
-          phone: extractPhone(p),
-          photo_url: extractRealPhoto(p),
-          desc_fr: `Pont remarquable et ouvrage d'art emblématique à ${city}.`,
-          price: 'Accès libre'
-        });
-      }
-
-      // Canaux & Pangalanes
-      for (const c of [...osmCanaux, ...osmPangalanes]) {
-        const rawName = c.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'aventure',
-          lat: parseFloat(c.lat),
-          lng: parseFloat(c.lon),
-          phone: extractPhone(c),
-          photo_url: extractRealPhoto(c),
-          desc_fr: `Voie d'eau légendaire longeant la côte Est, balades en pirogue et nature.`,
-          price: 'Excursion guidée / Pirogue'
-        });
-      }
-
-      // Lacs & Thermes
-      for (const l of [...osmLacs, ...osmThermes]) {
-        const rawName = l.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'nature',
-          lat: parseFloat(l.lat),
-          lng: parseFloat(l.lon),
-          phone: extractPhone(l),
-          photo_url: extractRealPhoto(l),
-          desc_fr: `Site naturel d'exception, détente et découverte du paysage à ${city}.`,
-          price: 'Accès libre / Détente'
-        });
-      }
-
-      // Parcs & réserves
-      for (const pk of osmParcs) {
-        const rawName = pk.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'nature',
-          lat: parseFloat(pk.lat),
-          lng: parseFloat(pk.lon),
-          phone: extractPhone(pk),
-          photo_url: extractRealPhoto(pk),
-          desc_fr: `Espace vert, détente et biodiversité locale à ${city}.`,
-          price: 'Visite & découverte'
-        });
-      }
-
-      // Cathédrales & Églises historiques
-      for (const e of [...osmCathedrales, ...osmEglises]) {
-        const rawName = e.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'religieux',
-          lat: parseFloat(e.lat),
-          lng: parseFloat(e.lon),
-          phone: extractPhone(e),
-          photo_url: extractRealPhoto(e),
-          desc_fr: `Édifice religieux historique et patrimoine architectural au cœur de ${city}.`,
-          price: 'Accès libre'
-        });
-      }
-
-      // Monuments & Mémoriaux
-      for (const m of osmMonuments) {
-        const rawName = m.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'patrimoine',
-          lat: parseFloat(m.lat),
-          lng: parseFloat(m.lon),
-          phone: extractPhone(m),
-          photo_url: extractRealPhoto(m),
-          desc_fr: `Monument et lieu de mémoire emblématique de ${city}.`,
-          price: 'Accès libre'
-        });
-      }
-
-      // Marchés & artisanat
-      for (const mk of osmMarches) {
-        const rawName = mk.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'marche',
-          lat: parseFloat(mk.lat),
-          lng: parseFloat(mk.lon),
-          phone: extractPhone(mk),
-          photo_url: extractRealPhoto(mk),
-          desc_fr: `Marché populaire et animé, produits du terroir et artisanat local.`,
-          price: 'Achats locaux'
-        });
-      }
-
-      // Aéroports & transport
-      for (const ap of osmAeroPort) {
-        const rawName = ap.display_name.split(',')[0].trim();
-        if (/ecole|college|lycee|school/i.test(rawName)) continue;
-        candidates.push({
-          rawName,
-          category: 'aventure',
-          lat: parseFloat(ap.lat),
-          lng: parseFloat(ap.lon),
-          phone: extractPhone(ap),
-          photo_url: extractRealPhoto(ap),
-          desc_fr: `Point d'accès et infrastructure de liaison pour la région de ${city}.`,
-          price: 'Information transport'
-        });
-      }
-
-      // DEDUPLICATION PIPELINE (Anti-redondance with existing DB items & batch candidates)
-      const existingInDb = db.prepare('SELECT name, lat, lng FROM places WHERE city = ?').all(city.trim());
+      // DEDUPLICATION PIPELINE
+      const existingInDb = db.prepare('SELECT name, lat, lng FROM places WHERE LOWER(city) = LOWER(?)').all(city.trim());
       const acceptedPlaces = [];
 
       for (const c of candidates) {
         const norm = normalizePlaceName(c.rawName);
         if (!norm || norm.length < 3) continue;
 
-        // Check if redundant with already existing places in this city
         const redundantWithDb = existingInDb.some((ex) => {
           const dist = getDistanceMeters(c.lat, c.lng, ex.lat, ex.lng);
           const sameNorm = normalizePlaceName(ex.name) === norm;
@@ -492,12 +453,10 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
         });
         if (redundantWithDb) continue;
 
-        // Check if redundant with already accepted candidate in this batch
         const isDuplicate = acceptedPlaces.some((existing) => {
           const dist = getDistanceMeters(c.lat, c.lng, existing.lat, existing.lng);
           const sameNorm = existing.norm === norm;
-          const closeDist = dist < 70;
-          return sameNorm || (closeDist && (existing.norm.includes(norm) || norm.includes(existing.norm)));
+          return sameNorm || (dist < 70 && (existing.norm.includes(norm) || norm.includes(existing.norm)));
         });
 
         if (!isDuplicate) {
@@ -512,19 +471,19 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
             id: `kiosk_${city.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
             category: p.category,
             name: p.rawName,
-            desc_fr: p.desc_fr || `Établissement répertorié à ${city} sur OpenStreetMap & Google Maps.`,
+            desc_fr: p.desc_fr,
             desc_mg: `Toerana voatanisa ao ${city}.`,
-            desc_en: `Establishment listed in ${city} via OpenStreetMap & Google Maps.`,
-            price_indicative: p.price || (p.category === 'hotel' ? 'Tarif selon saison' : p.category === 'restaurant' ? 'Cuisine locale et variée' : 'Visite & découverte'),
+            desc_en: `Point of interest in ${city}.`,
+            price_indicative: p.price,
             contact: p.phone,
             lat: p.lat,
             lng: p.lng,
             rating: 4.6,
             photo_url: p.photo_url,
-            distance_km: `${city}`,
+            distance_km: city,
             travel_time: 'Proche',
-            itinerary_steps: `Situé à ${p.rawName}, ${city}. Suivre l'itinéraire GPS.`,
-            google_maps_url: `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`,
+            itinerary_steps: `${p.rawName}, ${city}.`,
+            google_maps_url: '',
             city: city.trim()
           });
           importedCount++;
@@ -532,38 +491,27 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
       });
 
       tx(acceptedPlaces);
+      console.log(`[KIOSK CITY SWITCH] Inserted ${acceptedPlaces.length} new places for ${city} (Overpass).`);
     }
 
-    // 4. Auto-import emergency services from OSM if none exist for this city
+    // 4. Auto-import emergency services from Overpass if none exist for this city
     if (existingEmergency === 0) {
-      console.log(`[KIOSK CITY SWITCH] Auto-importing emergency services for ${city}...`);
+      console.log(`[KIOSK CITY SWITCH] Auto-importing emergency services via Overpass for ${city}...`);
 
-      const emergencySearchConfigs = [
-        { key: 'hospitals', q: `hospital ${city}` },
-        { key: 'police',    q: `police commissariat ${city}` },
-        { key: 'gendarme',  q: `gendarmerie ${city}` },
-        { key: 'fire',      q: `pompiers feu ${city}` },
-        { key: 'pharmacy',  q: `pharmacie ${city}` },
-        { key: 'clinic',    q: `clinique ${city}` }
-      ];
+      const radius = 15000;
+      const emQuery = `[out:json][timeout:25];
+(
+  node[amenity=hospital](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=clinic](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=doctors](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=pharmacy](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=police](around:${radius},${parsedLat},${parsedLng});
+  node[amenity=fire_station](around:${radius},${parsedLat},${parsedLng});
+);
+out body;`;
 
-      const emMap = {};
-      for (const item of emergencySearchConfigs) {
-        try {
-          const res = await queryNominatim(item.q);
-          emMap[item.key] = Array.isArray(res) ? res : [];
-        } catch {
-          emMap[item.key] = [];
-        }
-        await sleep(100);
-      }
-
-      const osmHospitals = emMap.hospitals || [];
-      const osmPolice = emMap.police || [];
-      const osmGendarme = emMap.gendarme || [];
-      const osmFirestations = emMap.fire || [];
-      const osmPharmacies = emMap.pharmacy || [];
-      const osmClinics = emMap.clinic || [];
+      const emResult = await queryOverpass(emQuery);
+      const emElements = emResult.elements || [];
 
       const insertEmergency = db.prepare(`
         INSERT OR IGNORE INTO emergency_contacts (name, number, address, icon, lat, lng, city, display_order)
@@ -571,49 +519,53 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
       `);
 
       const emergencyCandidates = [];
-
-      // Map OSM results to emergency contact type
-      const emergencyTypes = [
-        { results: osmHospitals, icon: 'Ambulance', label: 'Hôpital', defaultNumber: '020' },
-        { results: osmPolice,    icon: 'ShieldAlert', label: 'Police nationale', defaultNumber: '17' },
-        { results: osmGendarme,  icon: 'ShieldAlert', label: 'Gendarmerie', defaultNumber: '17' },
-        { results: osmFirestations, icon: 'Flame', label: 'Pompiers', defaultNumber: '18' },
-        { results: osmPharmacies, icon: 'HeartPulse', label: 'Pharmacie', defaultNumber: '' },
-        { results: osmClinics,   icon: 'Ambulance', label: 'Clinique', defaultNumber: '020' }
-      ];
-
-      const existingEmContacts = db.prepare('SELECT name, lat, lng FROM emergency_contacts WHERE city = ?').all(city.trim());
+      const existingEmContacts = db.prepare('SELECT name, lat, lng FROM emergency_contacts WHERE LOWER(city) = LOWER(?)').all(city.trim());
       let emOrder = 0;
 
-      for (const { results, icon, label, defaultNumber } of emergencyTypes) {
-        for (const item of results.slice(0, 3)) { // max 3 per type
-          const rawName = item.display_name.split(',')[0].trim();
-          const itemLat = parseFloat(item.lat);
-          const itemLng = parseFloat(item.lon);
-          const addr = (item.address?.road || item.address?.suburb || item.address?.city_district || city);
-          const phone = extractPhone(item) || defaultNumber;
+      // Map OSM amenity tags to emergency contact metadata
+      function emIcon(amenity) {
+        if (amenity === 'hospital' || amenity === 'clinic' || amenity === 'doctors') return 'Ambulance';
+        if (amenity === 'police') return 'ShieldAlert';
+        if (amenity === 'fire_station') return 'Flame';
+        if (amenity === 'pharmacy') return 'HeartPulse';
+        return 'Ambulance';
+      }
+      function emDefaultNumber(amenity) {
+        if (amenity === 'hospital' || amenity === 'clinic') return '020';
+        if (amenity === 'police') return '17';
+        if (amenity === 'fire_station') return '18';
+        return '';
+      }
 
-          // Dedup check
-          const isDup = emergencyCandidates.some(e => {
-            const d = getDistanceMeters(itemLat, itemLng, e.lat, e.lng);
-            return d < 100;
-          }) || existingEmContacts.some(e => {
-            const d = getDistanceMeters(itemLat, itemLng, e.lat, e.lng);
-            return d < 100;
+      for (const el of emElements) {
+        const tags = el.tags || {};
+        const rawName = tags['name:fr'] || tags.name || tags['name:mg'] || '';
+        if (!rawName || rawName.length < 2) continue;
+        const itemLat = el.lat || (el.center && el.center.lat) || null;
+        const itemLng = el.lon || (el.center && el.center.lon) || null;
+        if (!itemLat || !itemLng) continue;
+
+        const amenity = tags.amenity || '';
+        const phone = extractPhone(tags) || emDefaultNumber(amenity);
+        const addr = tags['addr:street'] || tags['addr:suburb'] || city;
+
+        const isDup = emergencyCandidates.some(e => {
+          return getDistanceMeters(itemLat, itemLng, e.lat, e.lng) < 100;
+        }) || existingEmContacts.some(e => {
+          return getDistanceMeters(itemLat, itemLng, e.lat, e.lng) < 100;
+        });
+
+        if (!isDup) {
+          emergencyCandidates.push({
+            name: rawName,
+            number: phone,
+            address: `${addr}, ${city}`,
+            icon: emIcon(amenity),
+            lat: parseFloat(itemLat),
+            lng: parseFloat(itemLng),
+            city: city.trim(),
+            display_order: emOrder++
           });
-
-          if (!isDup && rawName.length > 2) {
-            emergencyCandidates.push({
-              name: rawName,
-              number: phone,
-              address: `${addr}, ${city}`,
-              icon,
-              lat: itemLat,
-              lng: itemLng,
-              city: city.trim(),
-              display_order: emOrder++
-            });
-          }
         }
       }
 
@@ -624,10 +576,10 @@ router.post('/switch-city', authMiddleware, async (req, res) => {
         }
       });
       emTx(emergencyCandidates);
-      console.log(`[KIOSK CITY SWITCH] Imported ${emergencyCandidates.length} emergency contacts for ${city}.`);
+      console.log(`[KIOSK CITY SWITCH] Imported ${emergencyCandidates.length} emergency contacts for ${city} (Overpass).`);
     }
 
-    const totalPlacesNow = db.prepare('SELECT count(*) as count FROM places WHERE city = ?').get(city.trim()).count;
+    const totalPlacesNow = db.prepare('SELECT count(*) as count FROM places WHERE LOWER(city) = LOWER(?)').get(city.trim()).count;
     const availableCities = db.getAvailableCities();
     res.json({
       success: true,

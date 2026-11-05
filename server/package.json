@@ -1,12 +1,14 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "Backend API & SQLite Database for Fianarantsoa Tourism Kiosk",
+  "description": "Backend API & SQLite Database for Madagascar Tourism Kiosk",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "generate:audio": "node scripts/generate-phrase-audio.js --missing"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",

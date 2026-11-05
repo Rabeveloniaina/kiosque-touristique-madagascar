@@ -4,7 +4,7 @@ import CountryFlag from '../../components/CountryFlag';
 
 export default function LanguageSelectView({ onSelectLanguage, onBackToScreensaver, kioskConfig }) {
   const [secondsLeft, setSecondsLeft] = useState(15);
-  const activeCity = kioskConfig?.active_city || 'Fianarantsoa';
+  const activeCity = kioskConfig?.active_city || 'Madagascar';
 
   // 15 seconds timeout to return to screensaver if untouched
   useEffect(() => {

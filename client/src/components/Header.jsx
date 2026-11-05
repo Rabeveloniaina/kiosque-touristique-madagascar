@@ -6,10 +6,10 @@ import CountryFlag from './CountryFlag';
 
 export default function Header({ currentScreen, currentLang, onBack, onHome, onChangeLang, kioskConfig }) {
   const [time, setTime] = useState('');
-  const city = kioskConfig?.active_city || 'Fianarantsoa';
-  const region = kioskConfig?.active_region || 'Haute Matsiatra';
-  const lat = kioskConfig?.active_lat ?? -21.4536;
-  const lng = kioskConfig?.active_lng ?? 47.0858;
+  const city = kioskConfig?.active_city || 'Madagascar';
+  const region = kioskConfig?.active_region || '';
+  const lat = kioskConfig?.active_lat ?? -18.7669;
+  const lng = kioskConfig?.active_lng ?? 46.8691;
   const [weather, setWeather] = useState({ temp: 24, city });
   const t = translations[currentLang] || translations.fr;
 
@@ -79,7 +79,7 @@ export default function Header({ currentScreen, currentLang, onBack, onHome, onC
             </span>
           </div>
           <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-            {region} • Madagascar
+            {region ? `${region} • Madagascar` : 'Madagascar'}
           </span>
         </div>
       </div>

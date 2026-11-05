@@ -1,11 +1,11 @@
 /**
- * Real Live Weather Service for Fianarantsoa (Haute Matsiatra, Madagascar)
+ * Real Live Weather Service for Madagascar tourism kiosks
  * Powered by Open-Meteo (100% free, open-source, no API key required).
- * Coordinates of Fianarantsoa: Lat -21.4536, Lng 47.0858, Alt ~1130m.
+ * Default coordinates: Madagascar center (Lat -18.7669, Lng 46.8691).
  */
 
-const FIANAR_LAT = -21.4536;
-const FIANAR_LNG = 47.0858;
+const MADAGASCAR_LAT = -18.7669;
+const MADAGASCAR_LNG = 46.8691;
 
 const WMO_DESCRIPTIONS = {
   0: { fr: 'Ciel dégagé et ensoleillé', mg: 'Masoandro migajigaji', en: 'Clear and sunny sky' },
@@ -28,7 +28,7 @@ const WMO_DESCRIPTIONS = {
   99: { fr: 'Orage violent avec grêle', mg: 'Oram-baratra mahery misy havandra', en: 'Severe thunderstorm with heavy hail' }
 };
 
-export async function fetchLiveWeather(lat = FIANAR_LAT, lng = FIANAR_LNG, cityName = 'Fianarantsoa') {
+export async function fetchLiveWeather(lat = MADAGASCAR_LAT, lng = MADAGASCAR_LNG, cityName = 'Madagascar') {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&timezone=auto`;
     const response = await fetch(url);

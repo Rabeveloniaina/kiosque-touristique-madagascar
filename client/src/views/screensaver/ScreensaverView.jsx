@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Eye, HandMetal, MapPin } from 'lucide-react';
-import { mockAds } from '../../data/mockData';
 
 export default function ScreensaverView({ onWakeUp, isPersonDetected, adsList, kioskConfig }) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const activeCity = kioskConfig?.active_city || 'Fianarantsoa';
+  const activeCity = kioskConfig?.active_city || 'Madagascar';
 
-  // Use dynamic ads from backend if available, fallback to mockAds
-  const activeAds = adsList && adsList.length > 0 ? adsList : mockAds;
+  // Only display ads configured in the back office. No hardcoded fallback content.
+  const activeAds = Array.isArray(adsList) ? adsList : [];
 
   // Auto-rotation every X seconds based on ad duration
   useEffect(() => {
@@ -23,14 +22,14 @@ export default function ScreensaverView({ onWakeUp, isPersonDetected, adsList, k
   }, [currentSlide, activeAds]);
 
   const ad = activeAds[currentSlide] || activeAds[0];
-  if (!ad) return null;
 
-  // Adapt between SQLite format (title_fr, title_mg) and mock format (title.fr, title.mg)
-  const titleFr = ad.title_fr || ad.title?.fr || activeCity;
-  const titleMg = ad.title_mg || ad.title?.mg || '';
-  const subtitleFr = ad.subtitle_fr || ad.subtitle?.fr || '';
-  const mediaUrl = ad.media_url || ad.imageUrl;
-  const isVideo = ad.media_type === 'video' || (mediaUrl && mediaUrl.endsWith('.mp4'));
+  // Deux lignes de titre libres : la principale puis la secondaire.
+  // (Colonnes SQLite title_fr / title_mg conservées pour compatibilité.)
+  const primaryTitle = ad?.title_fr || ad?.title?.fr || activeCity;
+  const secondaryTitle = ad?.title_mg || ad?.title?.mg || '';
+  const subtitleFr = ad?.subtitle_fr || ad?.subtitle?.fr || '';
+  const mediaUrl = ad?.media_url || ad?.imageUrl;
+  const isVideo = ad?.media_type === 'video' || (mediaUrl && mediaUrl.endsWith('.mp4'));
 
   return (
     <div
@@ -38,6 +37,9 @@ export default function ScreensaverView({ onWakeUp, isPersonDetected, adsList, k
       className="relative w-full h-full bg-black cursor-pointer overflow-hidden select-none flex flex-col justify-between"
     >
       {/* Background Media Carousel with Smooth Fade */}
+      {activeAds.length === 0 && (
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950" />
+      )}
       {activeAds.map((slide, index) => {
         const slideUrl = slide.media_url || slide.imageUrl;
         const slideIsVideo = slide.media_type === 'video' || (slideUrl && slideUrl.endsWith('.mp4'));
@@ -76,7 +78,7 @@ export default function ScreensaverView({ onWakeUp, isPersonDetected, adsList, k
       <div className="relative z-10 p-8 flex items-center justify-between">
         <div className="flex items-center space-x-3 bg-black/60 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 shadow-xl">
           <MapPin className="w-6 h-6 text-amber-400" />
-          <span className="text-xl font-black tracking-wide text-white uppercase">{activeCity} • MADAGASCAR</span>
+          <span className="text-xl font-black tracking-wide text-white uppercase">{activeCity === 'Madagascar' ? 'MADAGASCAR' : `${activeCity} • MADAGASCAR`}</span>
         </div>
 
         {/* Camera Sensor Visual Feedback */}
@@ -91,17 +93,12 @@ export default function ScreensaverView({ onWakeUp, isPersonDetected, adsList, k
 
       {/* Center Slide Information */}
       <div className="relative z-10 px-12 max-w-4xl">
-        <div className="inline-flex items-center space-x-2 bg-amber-500/90 text-slate-950 font-black text-sm uppercase px-4 py-1.5 rounded-full mb-4 shadow-lg">
-          <Sparkles className="w-4 h-4" />
-          <span>{ad.badge || 'À découvrir'}</span>
-        </div>
-
         <h1 className="text-5xl md:text-7xl font-black text-white leading-tight drop-shadow-2xl">
-          {titleFr}
+          {primaryTitle}
         </h1>
-        {titleMg && (
+        {secondaryTitle && secondaryTitle !== primaryTitle && (
           <p className="text-2xl md:text-3xl text-amber-200 font-semibold mt-3 drop-shadow-md">
-            {titleMg}
+            {secondaryTitle}
           </p>
         )}
         {subtitleFr && (
@@ -109,6 +106,10 @@ export default function ScreensaverView({ onWakeUp, isPersonDetected, adsList, k
             {subtitleFr}
           </p>
         )}
+        <div className="inline-flex items-center space-x-2 bg-amber-500/90 text-slate-950 font-black text-sm uppercase px-4 py-1.5 rounded-full mt-5 shadow-lg">
+          <Sparkles className="w-4 h-4" />
+          <span>{ad?.badge || 'À découvrir'}</span>
+        </div>
 
         {/* Carousel indicator dots */}
         <div className="flex space-x-3 mt-8">

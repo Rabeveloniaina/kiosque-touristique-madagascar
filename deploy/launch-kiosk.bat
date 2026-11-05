@@ -1,17 +1,17 @@
 @echo off
 :: ============================================================
-::  KIOSQUE TOURISTIQUE FIANARANTSOA — Lanceur Windows
+::  KIOSQUE TOURISTIQUE MADAGASCAR — Lanceur Windows
 ::  Ce script :
 ::   1. Build le frontend React en production
 ::   2. Démarre backend + frontend via PM2
 ::   3. Ouvre Chromium en mode kiosque plein écran
 :: ============================================================
 
-title Kiosque Fianarantsoa — Démarrage
+title Kiosque Touristique Madagascar — Démarrage
 
 echo.
 echo  ╔══════════════════════════════════════════════════╗
-echo  ║   KIOSQUE TOURISTIQUE — FIANARANTSOA             ║
+echo  ║   KIOSQUE TOURISTIQUE — MADAGASCAR               ║
 echo  ║   École Nationale d'Informatique (ENI) — 2024   ║
 echo  ╚══════════════════════════════════════════════════╝
 echo.

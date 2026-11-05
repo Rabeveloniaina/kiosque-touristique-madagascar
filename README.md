@@ -1,7 +1,7 @@
-# 🗺️ Kiosque Touristique Interactif — Fianarantsoa
+# 🗺️ Kiosque Touristique Interactif — Madagascar
 
 > **Projet universitaire — ENI M1 — 2024/2025**  
-> Kiosque d'affichage numérique interactif pour les touristes visitant Fianarantsoa, Haute Matsiatra, Madagascar.
+> Kiosque d'affichage numérique interactif pour les touristes visitant Madagascar.
 
 ---
 
@@ -42,7 +42,7 @@ Le retour automatique à la veille se déclenche après **30 secondes d'inactivi
 │  React 18 + Vite + Tailwind CSS                  │
 │  ├── MediaPipe FaceDetector (détection caméra)   │
 │  ├── Leaflet.js (carte OpenStreetMap)            │
-│  ├── Web Audio API (phrases utiles audio)        │
+│  ├── Web Audio API + MMS-TTS (audio malgache)    │
 │  └── Service Worker (mode hors-ligne)            │
 └──────────────┬───────────────┬──────────────────┘
                │ HTTP REST API │ Fichiers statiques
@@ -50,7 +50,7 @@ Le retour automatique à la veille se déclenche après **30 secondes d'inactivi
 ┌──────────────────────────────────────────────────┐
 │          Node.js + Express (port 5000)            │
 │  ├── SQLite (better-sqlite3) — kiosk.db          │
-│  ├── Multer (upload images/vidéos)               │
+│  ├── Multer (images, vidéos, audio)              │
 │  ├── JWT (authentification admin)                │
 │  └── bcryptjs (hashage mots de passe)            │
 └──────────────────────────────────────────────────┘
@@ -118,7 +118,15 @@ npm run dev -- --host
 # → http://localhost:5173
 ```
 
-### 4. Ouvrir dans le navigateur
+### 4. Générer les audios malgaches (optionnel)
+
+```bash
+cd server
+npm run generate:audio
+# → MMS-TTS (Meta), téléchargement unique du modèle (~38 Mo)
+```
+
+### 5. Ouvrir dans le navigateur
 
 ```
 http://localhost:5173
@@ -251,9 +259,12 @@ Formats supportés : `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.mp4`
 - Badges visuels : "Aujourd'hui", "Cette semaine", "Expiré"
 
 ### 6. Phrases utiles
+- CRUD complet depuis le back-office (onglet « Phrases utiles »)
 - Trilingue : Malagasy / Français / English
 - Catégories : Salutations, Restauration, Transport, Urgences, Commerce
-- Synthèse vocale via Web Speech API (`SpeechSynthesis`)
+- Audio malgache généré avec **MMS-TTS** (`facebook/mms-tts-mlg`, version ONNX quantifiée)
+- Fichiers audio stockés dans `server/uploads/audio/`, seul le chemin est enregistré en base
+- Repli sur la synthèse vocale du navigateur si aucun audio n’est disponible
 - Son de confirmation via Web Audio API
 
 ### 7. Numéros d'urgence
@@ -318,8 +329,10 @@ M1/
 │   │       ├── emergency.js   # CRUD urgences
 │   │       ├── events.js      # CRUD événements
 │   │       ├── places.js      # CRUD lieux + itinéraires
+│   │       ├── phrases.js     # CRUD phrases + audio MMS
 │   │       └── stats.js       # Télémétrie anonyme
-│   ├── uploads/               # Médias uploadés (images, vidéos)
+│   ├── scripts/               # generate-phrase-audio.js (MMS-TTS)
+│   ├── uploads/               # Médias (images, vidéos, audio/)
 │   ├── kiosk.db               # Base de données SQLite
 │   └── server.js              # Point d'entrée Express
 │
@@ -398,5 +411,5 @@ Usage éducatif uniquement.
 
 ---
 
-*Développé avec ❤️ pour promouvoir le tourisme à Fianarantsoa, capitale spirituelle de Madagascar.*
+*Développé avec ❤️ pour promouvoir le tourisme à Madagascar.*
 

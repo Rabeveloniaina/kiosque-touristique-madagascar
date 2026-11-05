@@ -1,4 +1,11 @@
 const API_BASE_URL = 'http://localhost:5000/api';
+export const API_ORIGIN = 'http://localhost:5000';
+
+export function resolveMediaUrl(url) {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+}
 
 function getAuthHeader() {
   const token = localStorage.getItem('kiosk_admin_token');
@@ -146,7 +153,8 @@ export const api = {
     }
   },
 
-  async importOsmPlaces(city = 'Fianarantsoa') {
+  async importOsmPlaces(city) {
+    if (!city) throw new Error('Aucune ville sélectionnée pour l’import OpenStreetMap.');
     const res = await fetch(`${API_BASE_URL}/places/import-osm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
@@ -269,6 +277,100 @@ export const api = {
     return await res.json();
   },
 
+  // --- PHRASES UTILES ---
+  async getPhrases() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/phrases`);
+      if (!res.ok) throw new Error('Erreur');
+      return await res.json();
+    } catch {
+      return null;
+    }
+  },
+
+  async getAllPhrases() {
+    const res = await fetch(`${API_BASE_URL}/phrases/all`, {
+      headers: { ...getAuthHeader() }
+    });
+    if (!res.ok) throw new Error('Impossible de charger les phrases.');
+    return await res.json();
+  },
+
+  async createPhrase(phraseData) {
+    const res = await fetch(`${API_BASE_URL}/phrases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(phraseData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de l’ajout de la phrase.');
+    return data;
+  },
+
+  async updatePhrase(id, phraseData) {
+    const res = await fetch(`${API_BASE_URL}/phrases/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(phraseData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la modification de la phrase.');
+    return data;
+  },
+
+  async deletePhrase(id) {
+    const res = await fetch(`${API_BASE_URL}/phrases/${id}`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeader() }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la suppression.');
+    return data;
+  },
+
+  async generatePhraseAudio(id) {
+    const res = await fetch(`${API_BASE_URL}/phrases/${id}/tts`, {
+      method: 'POST',
+      headers: { ...getAuthHeader() }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la génération audio MMS.');
+    return data;
+  },
+
+  async generateMissingPhraseAudios() {
+    const res = await fetch(`${API_BASE_URL}/phrases/tts-all`, {
+      method: 'POST',
+      headers: { ...getAuthHeader() }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la génération audio MMS.');
+    return data;
+  },
+
+  async uploadPhraseAudio(id, file) {
+    const formData = new FormData();
+    formData.append('audioFile', file);
+    const res = await fetch(`${API_BASE_URL}/phrases/${id}/audio`, {
+      method: 'POST',
+      headers: { ...getAuthHeader() },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors du téléversement audio.');
+    return data;
+  },
+
+  async deletePhraseAudio(id) {
+    const res = await fetch(`${API_BASE_URL}/phrases/${id}/audio`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeader() }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la suppression audio.');
+    return data;
+  },
+
   // --- STATS & TELEMETRY ---
   async syncSession(sessionData) {
     try {
@@ -318,10 +420,10 @@ export const api = {
       console.warn('Erreur getKioskConfig:', e);
       return {
         config: {
-          active_city: 'Fianarantsoa',
-          active_region: 'Haute Matsiatra',
-          active_lat: -21.4536,
-          active_lng: 47.0858,
+          active_city: '',
+          active_region: '',
+          active_lat: -18.7669,
+          active_lng: 46.8691,
           active_country: 'Madagascar'
         },
         availableCities: []

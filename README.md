@@ -1,39 +1,41 @@
-# 🗺️ Kiosque Touristique Interactif — Madagascar
+# Kiosque Touristique Interactif — Madagascar
 
-> **Projet universitaire — ENI M1 — 2024/2025**  
-> Kiosque d'affichage numérique interactif pour les touristes visitant Madagascar.
+> **Projet de Kiosque Numérique Tactile**  
+> Borne interactive d'affichage et de guidage touristique multi-villes pour Madagascar.
 
 ---
 
-## 📋 Table des matières
+## Table des matières
 
-1. [Aperçu du projet](#aperçu)
+1. [Aperçu du projet](#apercu)
 2. [Architecture technique](#architecture)
-3. [Prérequis](#prérequis)
-4. [Installation & Démarrage (développement)](#développement)
-5. [Déploiement kiosque (production)](#déploiement)
+3. [Prérequis](#prerequis)
+4. [Installation & Démarrage (développement)](#developpement)
+5. [Déploiement kiosque (production)](#deploiement)
 6. [Guide Back-Office administrateur](#back-office)
-7. [Fonctionnalités détaillées](#fonctionnalités)
+7. [Fonctionnalités détaillées](#fonctionnalites)
 8. [Structure des dossiers](#structure)
-9. [FAQ & Dépannage](#dépannage)
+9. [FAQ & Dépannage](#depannage)
+10. [Sécurité & Vie privée](#securite)
+11. [Licence](#licence)
 
 ---
 
-## 🎯 Aperçu {#aperçu}
+## Aperçu {#apercu}
 
 Ce kiosque numérique fonctionne en **3 modes** :
 
 | Mode | Déclencheur | Description |
 |------|------------|-------------|
-| **Veille** | Aucun visiteur détecté | Carousel de publicités en boucle |
-| **Accueil** | Visage détecté à ~2 m | Sélection de langue (🇲🇬 / 🇫🇷 / 🇬🇧) |
-| **Menu** | Langue choisie | 6 modules touristiques accessibles |
+| **Veille** | Aucun visiteur détecté | Carousel de publicités et promotions locales en boucle |
+| **Accueil** | Visage détecté à ~2 m | Sélection de la langue (Malagasy / Français / English) |
+| **Menu** | Langue choisie | 6 modules touristiques accessibles de manière tactile |
 
 Le retour automatique à la veille se déclenche après **30 secondes d'inactivité** ou si le visiteur s'éloigne.
 
 ---
 
-## 🏗️ Architecture technique {#architecture}
+## Architecture technique {#architecture}
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -61,95 +63,98 @@ Le retour automatique à la veille se déclenche après **30 secondes d'inactivi
 | Composant | Technologie | Raison du choix |
 |-----------|------------|-----------------|
 | Frontend | React 18 + Vite | Moderne, hot reload, build rapide |
-| Styles | Tailwind CSS v3 | Utility-first, idéal pour UI tactile |
-| Icônes | Lucide React | Open source, cohérent |
-| Carte | Leaflet + OpenStreetMap | Gratuit, 100% hors-ligne possible |
-| Détection | MediaPipe FaceDetector | Local, rapide, RGPD compliant |
+| Styles | Tailwind CSS v3 | Utility-first, adapté aux écrans tactiles |
+| Icônes | Lucide React | Vectoriel SVG léger et uniforme |
+| Carte | Leaflet + OpenStreetMap | Autonome, routage in-app sans onglet externe |
+| Détection | MediaPipe FaceDetector | Traitement local sur l'appareil, respect de la vie privée |
 | Backend | Node.js + Express | Léger, performant |
-| Base de données | SQLite (better-sqlite3) | Zéro configuration, fichier unique |
-| Auth | JWT + bcryptjs | Sécurisé, sans serveur d'auth |
-| Process | PM2 | Auto-restart, logs centralisés |
+| Base de données | SQLite (better-sqlite3) | Zéro configuration, fichier unique, portable |
+| Synthèse vocale | Meta MMS-TTS (ONNX) | Prononciation native malgache en local |
+| Auth | JWT + bcryptjs | Sécurisé, sans dépendance externe |
+| Process | PM2 | Démarrage automatique, supervision et logs |
 
 ---
 
-## 💻 Prérequis {#prérequis}
+## Prérequis {#prerequis}
 
-- **Node.js** ≥ 18.x → [nodejs.org](https://nodejs.org)
+- **Node.js** ≥ 18.x ([nodejs.org](https://nodejs.org))
 - **npm** ≥ 9.x (inclus avec Node.js)
-- **Navigateur** : Chromium / Google Chrome (pour le mode kiosque)
-- **Webcam** : obligatoire pour la détection de présence
+- **Navigateur** : Chromium / Google Chrome / Microsoft Edge (pour le mode kiosque plein écran)
+- **Webcam** : caméra standard pour la détection de présence
 - **Système** : Windows 10/11, Ubuntu 22.04+, ou Raspberry Pi OS
 
 ---
 
-## 🚀 Installation & Démarrage (développement) {#développement}
+## Installation & Démarrage (développement) {#developpement}
 
-### 1. Cloner / ouvrir le projet
+### 1. Cloner le projet
 
 ```bash
-cd "c:\Users\WINDOWS 10\Desktop\ENI\M1"
+git clone https://github.com/Rabeveloniaina/kiosque-touristique-madagascar.git
+cd kiosque-touristique-madagascar
 ```
 
 ### 2. Installer les dépendances
 
 ```bash
-# Backend
+# Dépendances du serveur backend
 cd server
 npm install
 
-# Frontend
+# Dépendances du client frontend
 cd ../client
 npm install
 ```
 
-### 3. Démarrer les serveurs de développement
+### 3. Démarrer les serveurs en mode développement
 
-**Terminal 1 — Backend API :**
+**Terminal 1 — Serveur Backend :**
 ```bash
 cd server
 npm start
-# → http://localhost:5000
+# API accessible sur : http://localhost:5000
 ```
 
-**Terminal 2 — Frontend Vite :**
+**Terminal 2 — Application Client :**
 ```bash
 cd client
 npm run dev -- --host
-# → http://localhost:5173
+# Application accessible sur : http://localhost:5173
 ```
 
-### 4. Générer les audios malgaches (optionnel)
+### 4. Générer les audios de prononciation malgache (optionnel)
 
 ```bash
 cd server
 npm run generate:audio
-# → MMS-TTS (Meta), téléchargement unique du modèle (~38 Mo)
+# Génération locale via MMS-TTS (Meta)
 ```
 
-### 5. Ouvrir dans le navigateur
+### 5. Accéder à l'application
 
+Ouvrez votre navigateur sur :
 ```
 http://localhost:5173
 ```
 
-Pour simuler le mode kiosque (sans caméra) : appuyez sur **Alt + clic** sur l'écran de veille pour passer directement au menu.
+Pour simuler l'approche d'un visiteur sans webcam : utilisez le bouton « Simuler présence » situé en bas à droite de l'écran.
 
 ---
 
-## 🖥️ Déploiement kiosque (production) {#déploiement}
+## Déploiement kiosque (production) {#deploiement}
 
-### Option A — Script automatique Windows (recommandé)
+### Option A — Script automatique Windows
 
 ```bat
 deploy\launch-kiosk.bat
 ```
 
-Ce script :
-1. Build le frontend (`npm run build`)
-2. Lance backend + frontend via PM2
-3. Ouvre Chromium en mode `--kiosk` plein écran sur `http://localhost:3000`
+Ce script effectue automatiquement les opérations suivantes :
+1. Compilation de production du frontend (`npm run build`)
+2. Lancement du serveur backend et de l'application via PM2
+3. Ouverture du navigateur en mode plein écran `--kiosk` sur `http://localhost:3000`
 
-Pour arrêter :
+Pour arrêter le kiosque :
 ```bat
 deploy\stop-kiosk.bat
 ```
@@ -157,259 +162,195 @@ deploy\stop-kiosk.bat
 ### Option B — Démarrage manuel avec PM2
 
 ```bash
-# Installer PM2 globalement
+# Installation globale de PM2
 npm install -g pm2
 
-# Build du frontend
+# Compilation du frontend
 cd client
 npm run build
 
-# Lancer via PM2
+# Lancement des processus
 cd ../deploy
 pm2 start ecosystem.config.js
 
-# Activer le démarrage automatique au boot
+# Sauvegarde pour démarrage automatique au boot du système
 pm2 save
 pm2 startup
 ```
 
-### Option C — Mode développement avec URL de production
+### Option C — Mode démonstration avec prévisualisation
 
 ```bash
 # Backend
 cd server && npm start
 
-# Frontend (prévisualisation build)
+# Frontend
 cd client && npm run preview -- --host --port 3000
 ```
 
-Puis ouvrir Chromium manuellement :
-```bash
-chromium-browser --kiosk --noerrdialogs --disable-infobars http://localhost:3000
-```
-
-### Adresses de production
+### Adresses et ports par défaut
 
 | Service | URL | Usage |
 |---------|-----|-------|
-| Kiosque public | http://localhost:3000 | Écran tactile |
-| API Backend | http://localhost:5000 | Interne |
-| Health check | http://localhost:5000/api/health | Monitoring |
+| Kiosque tactile public | http://localhost:3000 | Affichage écran borne |
+| API Backend | http://localhost:5000 | Services REST et médias |
+| Health check | http://localhost:5000/api/health | Supervision technique |
 
 ---
 
-## 🔐 Guide Back-Office administrateur {#back-office}
+## Guide Back-Office administrateur {#back-office}
 
-### Accès
+### Accès administrateur
 
-Depuis le kiosque : **appui long (5 secondes) sur le coin inférieur droit** de l'écran.
+Depuis le kiosque, deux méthodes d'accès sont disponibles :
+- **Bouton d'administration** en bas à droite de l'écran.
+- **Appui long (5 secondes)** sur le coin inférieur droit de la borne.
 
 > **Identifiants par défaut :**  
 > Identifiant : `admin`  
 > Mot de passe : `admin123`  
-> ⚠️ Changez ces identifiants immédiatement en production !
+> *Important : modifiez ces identifiants lors de la mise en service finale.*
 
-### Onglets disponibles
+### Modules d'administration
 
-| Onglet | Fonctionnalités |
-|--------|----------------|
-| 📢 **Publicités** | Ajouter/modifier/supprimer des slides (image URL ou fichier local, vidéo MP4) |
-| 📍 **Lieux & Itinéraires** | CRUD des sites touristiques avec GPS (sélection sur carte), photos, étapes |
-| 📅 **Événements & Météo** | CRUD événements avec validation date (pas de date passée), GPS via carte |
-| 🚨 **Urgences** | Contacts d'urgence (police, médecins, pompiers) avec localisation |
-| 📊 **Statistiques** | Sessions, durée moyenne, langues, pics d'affluence, graphe 7 jours, top QR |
-| 👥 **Comptes** | Modifier son profil, créer des comptes admin, supprimer des comptes |
+| Section | Fonctionnalités |
+|---------|----------------|
+| **Publicités** | Gestion des diapositives en boucle (images locales, URL web, vidéos MP4) |
+| **Lieux & Itinéraires** | Gestion des sites touristiques, coordonnées GPS, photos et étapes de parcours |
+| **Événements & Météo** | Programmation d'événements avec dates d'expiration et météo en temps réel |
+| **Urgences** | Répertoire des services d'urgence locaux (hôpitaux, police, pompiers, pharmacies) |
+| **Phrases utiles** | Gestion des expressions trilingues avec génération audio MMS-TTS |
+| **Configuration Ville** | Changement de la ville active du kiosque avec import automatique OpenStreetMap (Overpass API) |
+| **Statistiques** | Télémétrie anonyme : nombre de visites, langues choisies, fonctionnalités les plus consultées |
+| **Comptes Admin** | Gestion des utilisateurs et mots de passe d'administration |
 
-### Upload de fichiers
+### Stockage des médias
 
-Les médias uploadés sont stockés dans `server/uploads/`.  
-Formats supportés : `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.mp4`
+Les fichiers médias téléversés (photos, vidéos, audios) sont conservés localement dans le dossier `server/uploads/`.  
+Formats acceptés : `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.mp4`, `.mp3`, `.wav`.
 
 ---
 
-## 📱 Fonctionnalités détaillées {#fonctionnalités}
+## Fonctionnalités détaillées {#fonctionnalites}
 
-### 1. Mode Veille
-- Carousel automatique des publicités actives (backend) avec fallback mock
-- Supporte images (URL ou fichier) et vidéos MP4
-- Durée configurable par slide
+### 1. Économiseur d'écran dynamique
+- Défilement automatique des affiches publicitaires et culturelles
+- Prise en charge des images et des vidéos MP4 en boucle
+- Durée d'affichage paramétrable pour chaque diapositive
 
-### 2. Détection de présence
-- **Technologie** : MediaPipe FaceDetector (WASM local, GPU si dispo)
-- **Distance estimée** : ~2 m (basé sur la taille du visage dans le frame)
-- **Délai de confirmation** : 1 seconde (évite les faux déclenchements)
-- **Respect vie privée** : aucune image enregistrée ni transmise
+### 2. Détection de présence par caméra
+- Détecteur de visage MediaPipe exécuté localement dans le navigateur (WASM)
+- Détection à environ 2 mètres pour réveiller la borne
+- Zéro transfert réseau : les images de la caméra ne sont ni stockées ni transmises
 
-### 3. Carte & Itinéraires
-- Carte OpenStreetMap interactive (Leaflet)
-- 9 catégories de lieux : Patrimoine, Nature, Hôtels, Restaurants, Musées, Boutiques, Marchés, Parcs, Panoramas
-- QR Code d'itinéraire direct Google Maps (`dir/?api=1&destination=...`)
-- Photos des lieux, étapes d'itinéraire, distance et durée
+### 3. Carte interactive & Navigation sans onglet externe
+- Cartographie OpenStreetMap intégrée via Leaflet
+- Calcul d'itinéraire routier réel via OSRM (Open Source Routing Machine)
+- Modal d'aperçu d'itinéraire in-app sans ouverture d'onglets externes
+- Flashcode QR Code pour emporter l'itinéraire sur smartphone
 
-### 4. Hôtels & Bonnes Tables
-- Données chargées depuis le backend avec fallback hors-ligne
-- Filtres par catégorie : Hôtels, Restaurants, Guides, Transports, Boutiques, Patrimoine
-- QR Code itinéraire par établissement
-- Photos, prix indicatifs, contacts téléphoniques
+### 4. Hébergements & Restauration
+- Données géo-localisées isolées par ville
+- Filtres par catégorie : Hôtels, Restaurants, Guides, Transports, Boutiques
+- Contacts téléphoniques et tarifs indicatifs
 
-### 5. Événements & Météo
-- Météo simulée (intégration API météo possible)
-- Événements avec date d'expiration automatique
-- QR Code de navigation vers le lieu de l'événement
-- Badges visuels : "Aujourd'hui", "Cette semaine", "Expiré"
+### 5. Météo et Événements locaux
+- Données météo en direct via Open-Meteo API selon les coordonnées GPS de la ville active
+- Calendrier des festivités avec suppression automatique des dates échues
 
-### 6. Phrases utiles
-- CRUD complet depuis le back-office (onglet « Phrases utiles »)
-- Trilingue : Malagasy / Français / English
-- Catégories : Salutations, Restauration, Transport, Urgences, Commerce
-- Audio malgache généré avec **MMS-TTS** (`facebook/mms-tts-mlg`, version ONNX quantifiée)
-- Fichiers audio stockés dans `server/uploads/audio/`, seul le chemin est enregistré en base
-- Repli sur la synthèse vocale du navigateur si aucun audio n’est disponible
-- Son de confirmation via Web Audio API
+### 6. Expressions utiles & Synthèse vocale malgache
+- Expressions courantes trilingues (Malagasy / Français / English)
+- Prononciation audio authentique générée avec le modèle Meta MMS-TTS (`facebook/mms-tts-mlg`)
+- Repli sur la synthèse vocale du navigateur si aucun fichier audio n'est présent
 
-### 7. Numéros d'urgence
-- Police, CHU, Pompiers, Office du Tourisme
-- Numéro affiché en grand pour lecture à distance
-- QR Code de navigation vers le service
-- Localisation GPS précise
+### 7. Services d'urgence
+- Numéros d'urgence affichés en très grand format pour une lisibilité immédiate
+- Itinéraire direct vers les centres hospitaliers, postes de police et pompiers les plus proches
 
 ### 8. Convertisseur de devises
-- Conversion instantanée Ariary (MGA) ⇄ Euro (€) / Dollar US ($)
-- Pavé numérique tactile et montants rapides adaptés aux prix locaux
-- Taux indicatifs par défaut : `1 EUR = 5 000 MGA`, `1 USD = 4 600 MGA`
-- Actualisation optionnelle via `open.er-api.com` avec cache local (`localStorage`)
-- Fonctionne hors-ligne grâce aux taux en cache ou aux taux par défaut
+- Conversion bidirectionnelle Ariary (MGA) ⇄ Euro (EUR) / Dollar US (USD)
+- Pavé numérique tactile et montants usuels adaptés au pouvoir d'achat local
+- Fonctionnement autonome hors-ligne
 
-### 9. Statistiques anonymes
-- Comptage de sessions (sans données personnelles)
-- Durée moyenne par session
-- Répartition des langues choisies
-- Pics d'affluence par tranche horaire
-- Top des modules consultés
-- Top des QR Codes scannés
-- Tendance sur 7 jours (histogramme)
+### 9. Portabilité multi-villes
+- Aucune donnée codée en dur
+- Le kiosque peut être installé dans n'importe quelle ville de Madagascar
+- Importation automatisée des données locales réelles via OpenStreetMap (Overpass API)
 
 ---
 
-## 📁 Structure des dossiers {#structure}
+## Structure des dossiers {#structure}
 
 ```
-M1/
-├── client/                     # Frontend React
-│   ├── public/
-│   │   ├── wasm/              # Fichiers WASM MediaPipe
-│   │   └── models/            # Modèle TFLite FaceDetector
+kiosque-touristique-madagascar/
+├── client/                     # Application Frontend React
+│   ├── public/                # Modèles WASM et ressources statiques
 │   ├── src/
-│   │   ├── components/        # Header, CameraHud, LocationPicker, InactivityModal
-│   │   ├── data/              # translations.js (i18n), mockData.js
-│   │   ├── hooks/             # usePresenceCamera, useInactivityTimer
-│   │   ├── services/          # api.js, analytics.js
-│   │   ├── utils/             # navigation.js (QR Code + Google Maps)
-│   │   └── views/
-│   │       ├── admin/         # BackOfficeModal.jsx
-│   │       ├── converter/     # ConverterModuleView.jsx
-│   │       ├── emergency/     # EmergencyModuleView.jsx
-│   │       ├── language/      # LanguageSelectView.jsx
-│   │       ├── map/           # MapModuleView.jsx
-│   │       ├── menu/          # MainMenuView.jsx
-│   │       ├── phrases/       # PhrasesModuleView.jsx
-│   │       ├── places/        # PlacesModuleView.jsx
-│   │       ├── screensaver/   # ScreensaverView.jsx
-│   │       └── weather/       # WeatherModuleView.jsx
-│   ├── App.jsx                # Machine à états principale
+│   │   ├── components/        # Header, sélecteur de position, modal d'itinéraire
+│   │   ├── data/              # Traductions (i18n) et phrases de secours
+│   │   ├── hooks/             # Détection caméra et minuteur d'inactivité
+│   │   ├── services/          # Client API, météo, télémétrie
+│   │   ├── utils/             # Géolocalisation résiliente et navigation
+│   │   └── views/             # Modules de l'interface (menu, carte, lieux, urgences...)
+│   ├── App.jsx                # Composant racine et gestion des états
 │   └── index.html
 │
-├── server/                     # Backend Node.js
+├── server/                     # Backend Node.js Express
 │   ├── src/
-│   │   ├── db/database.js     # SQLite init + migrations + seed
-│   │   ├── middlewares/       # authMiddleware.js (JWT)
-│   │   └── routes/
-│   │       ├── ads.js         # CRUD publicités
-│   │       ├── auth.js        # Login, users, profil
-│   │       ├── emergency.js   # CRUD urgences
-│   │       ├── events.js      # CRUD événements
-│   │       ├── places.js      # CRUD lieux + itinéraires
-│   │       ├── phrases.js     # CRUD phrases + audio MMS
-│   │       └── stats.js       # Télémétrie anonyme
-│   ├── scripts/               # generate-phrase-audio.js (MMS-TTS)
-│   ├── uploads/               # Médias (images, vidéos, audio/)
-│   ├── kiosk.db               # Base de données SQLite
-│   └── server.js              # Point d'entrée Express
+│   │   ├── db/database.js     # Gestion SQLite (better-sqlite3)
+│   │   ├── middlewares/       # Sécurité et authentification JWT
+│   │   └── routes/            # Routes API REST (ads, config, places, emergency...)
+│   ├── scripts/               # Script de génération audio MMS-TTS
+│   ├── uploads/               # Dossier des médias téléversés
+│   ├── kiosk.db               # Base de données locale SQLite
+│   └── server.js              # Point d'entrée de l'API
 │
-├── deploy/                     # Scripts de déploiement
-│   ├── ecosystem.config.js    # Configuration PM2
-│   ├── launch-kiosk.bat       # Lanceur Windows (production)
-│   └── stop-kiosk.bat         # Arrêt du kiosque
+├── deploy/                     # Fichiers de déploiement en production
+│   ├── ecosystem.config.js    # Configuration des services PM2
+│   ├── launch-kiosk.bat       # Script de lancement automatique
+│   └── stop-kiosk.bat         # Script d'arrêt des services
 │
-├── logs/                       # Logs PM2 (créés au premier démarrage)
-└── README.md                   # Ce fichier
+└── README.md                   # Documentation du projet
 ```
 
 ---
 
-## 🔧 FAQ & Dépannage {#dépannage}
+## FAQ & Dépannage {#depannage}
 
-### La caméra ne démarre pas
-- Vérifiez que le navigateur a la permission d'accéder à la caméra
-- Ouvrez `http://localhost:5173` (pas `file://...`)
-- HTTPS requis sur certains navigateurs — en dev, `localhost` suffit
+### La caméra ne s'active pas
+- Assurez-vous d'avoir accordé l'autorisation d'accès à la caméra dans le navigateur.
+- L'API navigateur requiert un contexte sécurisé (`localhost` ou `https://`).
+- Le bouton de simulation permet de tester l'interface même sans webcam connectée.
 
-### Le moniteur IA (MediaPipe) clignote
-- Causé par des re-renders React trop fréquents
-- Solution : le composant `CameraDebugHud` utilise `useRef` + `requestAnimationFrame` stable
-- Désactivez le HUD en production : `<CameraDebugHud visible={false} />`
+### Position GPS de l'appareil
+- Les ordinateurs de bureau ne possèdent généralement pas de puce satellite matérielle.
+- L'application utilise un système à plusieurs niveaux : géolocalisation navigateur standard, puis fallback automatique par IP pour localiser le kiosque.
+- L'administrateur peut également pointer la position exacte de la borne directement sur la carte interactive.
 
-### Les images uploadées n'apparaissent pas
-- Vérifiez que `server/uploads/` existe et est accessible
-- Vérifiez la configuration Multer dans `server/src/routes/ads.js`
-- URL attendue : `http://localhost:5000/uploads/nom-fichier.jpg`
+### Les photos ou audios téléversés ne s'affichent pas
+- Vérifiez que le dossier `server/uploads/` dispose des droits d'écriture.
+- Les fichiers sont servis sur l'URL `http://localhost:5000/uploads/...`.
 
-### Les caractères accentués s'affichent mal (� / ?)
-- Cause historique : l'ancienne fonction `fixUtf8` convertissait en `latin1 -> UTF-8` des chaînes déjà correctes, produisant le caractère de remplacement `U+FFFD` (`�`).
-- Correction : `fixUtf8` a été supprimée ; Multer/busboy 1.6 décode déjà les champs multipart en UTF-8.
-- Données déjà corrompues : lancer `node server/scripts/repair-utf8.js` (les valeurs ciblées sont réécrites, avec un mode `--dry-run`).
-- Garde-fou : au démarrage, le serveur logue un avertissement si des valeurs `U+FFFD` subsistent en base.
-
-### Erreur `table places has no column named photo_url`
-- La DB existante n'a pas la colonne
-- Solution : les migrations `try { ALTER TABLE ... ADD COLUMN } catch {}` dans `database.js` gèrent ça automatiquement
-
-### Le QR Code ne lance pas l'itinéraire
-- L'URL doit être `https://www.google.com/maps/dir/?api=1&destination=LAT,LNG`
-- Vérifiez `client/src/utils/navigation.js` → fonction `getDirectionsUrl()`
-
-### Retour veille trop rapide / trop lent
-- Modifiez `INACTIVITY_TIMEOUT` dans `client/src/hooks/useInactivityTimer.js` (défaut : 30s)
-- Modifiez `LANG_SELECT_TIMEOUT` dans `client/src/views/language/LanguageSelectView.jsx` (défaut : 15s)
-
-### Commandes PM2 utiles
+### Commandes utiles pour la supervision
 
 ```bash
-pm2 list              # État de tous les processus
-pm2 logs              # Logs en temps réel
-pm2 restart all       # Redémarrer tous les services
-pm2 stop all          # Arrêter tous les services
-pm2 monit             # Dashboard interactif
+pm2 list              # Voir l'état des services en production
+pm2 logs              # Consulter les journaux en direct
+pm2 restart all       # Redémarrer l'ensemble des services
+pm2 stop all          # Stopper le kiosque
 ```
 
 ---
 
-## 🛡️ Sécurité & Vie privée
+## Sécurité & Vie privée {#securite}
 
-- **Aucune image** de la caméra n'est stockée ou transmise — traitement 100% local (MediaPipe WASM)
-- **Aucune donnée personnelle** n'est collectée — statistiques 100% anonymes
-- **JWT** avec durée limitée pour le back-office admin
-- **Mots de passe** hashés avec `bcryptjs` (10 rounds de salt)
-- **SQLite** locale — pas de connexion à un serveur distant
-
----
-
-## 📄 Licence
-
-Projet académique — École Nationale d'Informatique (ENI), Madagascar.  
-Usage éducatif uniquement.
+- **Traitement local** : la détection faciale fonctionne intégralement en mémoire dans le navigateur (WASM), aucune image n'est enregistrée.
+- **Anonymat** : aucune donnée nominative relative aux visiteurs n'est conservée.
+- **Authentification** : jetons JWT à durée limitée et mots de passe hashés avec `bcryptjs`.
+- **Données locales** : base SQLite stockée sur l'appareil sans transmission vers des serveurs tiers.
 
 ---
 
-*Développé avec ❤️ pour promouvoir le tourisme à Madagascar.*
+## Licence {#licence}
 
+Projet développé pour l'affichage interactif et la promotion du tourisme à Madagascar.

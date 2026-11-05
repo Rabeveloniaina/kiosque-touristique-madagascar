@@ -140,7 +140,7 @@ export default function MainMenuView({ currentLang, onSelectModule, kioskConfig 
       {/* Modules grid */}
       <div className="px-6 md:px-10 py-6 pb-24">
         <div className="max-w-6xl mx-auto">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">
             — Choisissez un service —
           </p>
 
@@ -170,7 +170,7 @@ export default function MainMenuView({ currentLang, onSelectModule, kioskConfig 
                   <div className="flex-1">
                     <h3 className="text-xl font-black text-white group-hover:text-amber-300 transition-colors flex items-center justify-between">
                       <span>{item.title}</span>
-                      <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-amber-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                      <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-amber-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
                     </h3>
                     <p className="text-slate-500 text-xs mt-1.5 line-clamp-1 font-medium">
                       {item.desc}
@@ -181,9 +181,9 @@ export default function MainMenuView({ currentLang, onSelectModule, kioskConfig 
                   <div className="flex items-center space-x-2 mt-4 pt-3.5 border-t border-slate-800/80">
                     {item.stats.map(({ icon: StatIcon, text }, si) => (
                       <div key={si} className="flex items-center space-x-1 text-slate-500 text-[10px] font-bold">
-                        <StatIcon className="w-3 h-3 text-slate-600" />
+                        <StatIcon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                         <span>{text}</span>
-                        {si < item.stats.length - 1 && <span className="ml-2 text-slate-700">•</span>}
+                        {si < item.stats.length - 1 && <span className="ml-2 text-slate-400">•</span>}
                       </div>
                     ))}
                   </div>

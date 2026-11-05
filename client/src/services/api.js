@@ -463,6 +463,13 @@ export const api = {
     return data;
   },
 
+  async getIpLocation() {
+    const res = await fetch(`${API_BASE_URL}/config/ip-location`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur géolocalisation IP.');
+    return data;
+  },
+
   async calibrateDeviceLocation(lat, lng) {
     const res = await fetch(`${API_BASE_URL}/config/calibrate-device`, {
       method: 'POST',

@@ -696,5 +696,47 @@ router.post('/set-coordinates', authMiddleware, (req, res) => {
   }
 });
 
+// 7. PUBLIC: IP-based Geolocation fallback when PC hardware lacks GPS receiver or browser blocks location
+router.get('/ip-location', async (req, res) => {
+  try {
+    const http = require('http');
+    const ipData = await new Promise((resolve) => {
+      const request = http.get('http://ip-api.com/json', { timeout: 6000 }, (response) => {
+        if (response.statusCode !== 200) {
+          response.resume();
+          return resolve(null);
+        }
+        const chunks = [];
+        response.on('data', chunk => chunks.push(chunk));
+        response.on('end', () => {
+          try {
+            resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+          } catch {
+            resolve(null);
+          }
+        });
+      });
+      request.on('timeout', () => { request.destroy(); resolve(null); });
+      request.on('error', () => resolve(null));
+    });
+
+    if (ipData && ipData.status === 'success') {
+      return res.json({
+        success: true,
+        source: 'ip',
+        city: ipData.city || 'Antananarivo',
+        region: ipData.regionName || 'Madagascar',
+        lat: ipData.lat,
+        lng: ipData.lon,
+        country: ipData.country || 'Madagascar'
+      });
+    }
+
+    res.status(404).json({ error: 'Géolocalisation IP indisponible.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur géolocalisation IP.' });
+  }
+});
+
 module.exports = router;
 

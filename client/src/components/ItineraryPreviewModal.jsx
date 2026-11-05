@@ -7,6 +7,7 @@ import {
   Sparkles, QrCode, Phone, Check, ChevronRight, AlertCircle, Loader2, Crosshair
 } from 'lucide-react';
 import { getQrCodeImageUrl } from '../utils/navigation';
+import { getDevicePosition } from '../utils/geolocation';
 
 // ────────────────────────────────────────────────────────────────────────────────
 // Custom Map Pins
@@ -173,24 +174,17 @@ export default function ItineraryPreviewModal({
   }, [isOpen, place, startLat, startLng, destLat, destLng, hasCoords]);
 
   // Handler: detect real PC GPS position
-  const handleDetectDeviceGps = () => {
-    if (!navigator.geolocation) {
-      setLocatingError("La géolocalisation n'est pas supportée sur ce navigateur.");
-      return;
-    }
+  const handleDetectDeviceGps = async () => {
     setIsLocatingPc(true);
     setLocatingError('');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocatingPc(false);
-        setCustomStart([pos.coords.latitude, pos.coords.longitude]);
-      },
-      (err) => {
-        setIsLocatingPc(false);
-        setLocatingError("Impossible d'obtenir la position GPS du PC (" + err.message + ").");
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    try {
+      const pos = await getDevicePosition();
+      setCustomStart([pos.lat, pos.lng]);
+    } catch (err) {
+      setLocatingError(err.message || "Impossible d'obtenir la position du PC.");
+    } finally {
+      setIsLocatingPc(false);
+    }
   };
 
   // Strict Hooks compliance: DO NOT RETURN NULL BEFORE HOOKS

@@ -9,6 +9,7 @@ import {
 import { api, resolveMediaUrl } from '../../services/api';
 import { analytics } from '../../services/analytics';
 import LocationPickerModal from '../../components/LocationPickerModal';
+import { getDevicePosition } from '../../utils/geolocation';
 
 export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityChanged }) {
   // Navigation tabs: 'ads' | 'places' | 'events' | 'phrases' | 'emergency' | 'config' | 'stats' | 'users'
@@ -191,37 +192,23 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   const [isCalibratingGps, setIsCalibratingGps] = useState(false);
 
-  const handleCalibrateDeviceGps = () => {
-    if (!navigator.geolocation) {
-      setSwitchErrorMsg("La géolocalisation n'est pas disponible sur ce navigateur.");
-      return;
-    }
+  const handleCalibrateDeviceGps = async () => {
     setIsCalibratingGps(true);
     setSwitchErrorMsg('');
     setSwitchSuccessMsg('');
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const lat = Number(pos.coords.latitude.toFixed(6));
-          const lng = Number(pos.coords.longitude.toFixed(6));
-          const res = await api.calibrateDeviceLocation(lat, lng);
-          setKioskConfigData(res.config);
-          setAvailableCities(res.availableCities || []);
-          setSwitchSuccessMsg(res.message || `Position du kiosque calibrée avec succès : [${lat}, ${lng}]`);
-          if (onCityChanged) onCityChanged(res.config);
-          await loadAllData();
-        } catch (err) {
-          setSwitchErrorMsg(err.message || 'Erreur lors de la calibration GPS.');
-        } finally {
-          setIsCalibratingGps(false);
-        }
-      },
-      (err) => {
-        setIsCalibratingGps(false);
-        setSwitchErrorMsg("Impossible d'obtenir la position GPS de votre PC (" + err.message + "). Veuillez autoriser l'accès à votre position dans le navigateur.");
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
+    try {
+      const pos = await getDevicePosition();
+      const res = await api.calibrateDeviceLocation(pos.lat, pos.lng);
+      setKioskConfigData(res.config);
+      setAvailableCities(res.availableCities || []);
+      setSwitchSuccessMsg(pos.message || res.message || `Position du kiosque calibrée avec succès : [${pos.lat}, ${pos.lng}]`);
+      if (onCityChanged) onCityChanged(res.config);
+      await loadAllData();
+    } catch (err) {
+      setSwitchErrorMsg(err.message || "Erreur lors de la calibration GPS de l'appareil.");
+    } finally {
+      setIsCalibratingGps(false);
+    }
   };
 
   const handleSearchCity = async (e) => {

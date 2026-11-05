@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Check, X, Compass, Crosshair, Loader2 } from 'lucide-react';
+import { getDevicePosition } from '../utils/geolocation';
 
 // Custom Map Marker Icon using HTML/CSS (clean, high contrast, no broken PNG paths)
 const customPinIcon = L.divIcon({
@@ -53,26 +54,17 @@ export default function LocationPickerModal({ isOpen, onClose, initialLat, initi
 
   if (!isOpen) return null;
 
-  const handleDetectDeviceGps = () => {
-    if (!navigator.geolocation) {
-      setGeoError('La géolocalisation n\'est pas supportée par votre navigateur.');
-      return;
-    }
+  const handleDetectDeviceGps = async () => {
     setIsLocating(true);
     setGeoError('');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocating(false);
-        const lat = Number(pos.coords.latitude.toFixed(6));
-        const lng = Number(pos.coords.longitude.toFixed(6));
-        setPosition([lat, lng]);
-      },
-      (err) => {
-        setIsLocating(false);
-        setGeoError('Impossible de récupérer la position GPS du PC (' + err.message + ').');
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    try {
+      const pos = await getDevicePosition();
+      setPosition([pos.lat, pos.lng]);
+    } catch (err) {
+      setGeoError(err.message || 'Impossible de récupérer la position du PC.');
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const handleSelectCoords = (lat, lng) => {

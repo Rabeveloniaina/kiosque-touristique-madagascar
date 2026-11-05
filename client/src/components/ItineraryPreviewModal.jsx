@@ -270,7 +270,7 @@ export default function ItineraryPreviewModal({
                 <Marker position={[startLat, startLng]} icon={kioskPinIcon}>
                   <Popup>
                     <div className="text-slate-900 font-bold text-xs p-1">
-                      📍 <b>{customStart ? 'Ce PC (Position GPS)' : 'Kiosque Touristique'}</b><br />
+                      <b>{customStart ? 'Ce PC (Position GPS)' : 'Kiosque Touristique'}</b><br />
                       Point de départ ({cityName})
                     </div>
                   </Popup>
@@ -280,7 +280,7 @@ export default function ItineraryPreviewModal({
                 <Marker position={[destLat, destLng]} icon={destinationPinIcon}>
                   <Popup>
                     <div className="text-slate-900 font-bold text-xs p-1">
-                      🏁 <b>{placeName}</b><br />Destination
+                      <b>{placeName}</b><br />Destination
                     </div>
                   </Popup>
                 </Marker>

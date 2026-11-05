@@ -5,11 +5,11 @@ import { translations } from '../../data/translations';
 import { api, resolveMediaUrl } from '../../services/api';
 
 const CATEGORY_META = {
-  salutations: { emoji: '👋', fr: 'Salutations', mg: 'Fiarahaba', en: 'Greetings' },
-  restauration: { emoji: '🍽️', fr: 'Restauration', mg: 'Sakafo', en: 'Dining' },
-  transport: { emoji: '🚕', fr: 'Transport', mg: 'Fitaterana', en: 'Transport' },
-  urgences: { emoji: '🆘', fr: 'Urgences', mg: 'Vonjy taitra', en: 'Emergency' },
-  commerce: { emoji: '🛍️', fr: 'Commerce', mg: 'Varotra', en: 'Shopping' }
+  salutations: { fr: 'Salutations', mg: 'Fiarahaba', en: 'Greetings' },
+  restauration: { fr: 'Restauration', mg: 'Sakafo', en: 'Dining' },
+  transport: { fr: 'Transport', mg: 'Fitaterana', en: 'Transport' },
+  urgences: { fr: 'Urgences', mg: 'Vonjy taitra', en: 'Emergency' },
+  commerce: { fr: 'Commerce', mg: 'Varotra', en: 'Shopping' }
 };
 
 const FALLBACK_CATEGORIES = [
@@ -249,7 +249,6 @@ export default function PhrasesModuleView({ currentLang, kioskConfig }) {
                     : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-purple-500/50'
                 }`}
               >
-                <span>{meta.emoji}</span>
                 <span>{getCategoryLabel(category, currentLang)}</span>
                 <span className="text-[10px] opacity-70">({count})</span>
               </button>
@@ -272,7 +271,6 @@ export default function PhrasesModuleView({ currentLang, kioskConfig }) {
           {visiblePhrases.map((phrase) => {
             const isPlaying = playingId === phrase.id;
             const hasAudio = Boolean(phrase.audio_url || phrase.audio_key);
-            const meta = CATEGORY_META[phrase.category] || CATEGORY_META.salutations;
 
             return (
               <div
@@ -283,10 +281,10 @@ export default function PhrasesModuleView({ currentLang, kioskConfig }) {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-black uppercase tracking-wider text-purple-300 bg-purple-950/60 border border-purple-500/30 px-3 py-1 rounded-full">
-                        {meta.emoji} {getCategoryLabel(phrase.category, currentLang)}
+                        {getCategoryLabel(phrase.category, currentLang)}
                       </span>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-                        🇲🇬 Malagasy
+                        Malagasy
                       </span>
                     </div>
 
@@ -316,7 +314,7 @@ export default function PhrasesModuleView({ currentLang, kioskConfig }) {
                   )}
 
                   <div className="text-[10px] text-slate-500 mt-1.5 font-semibold uppercase tracking-wide">
-                    {hasAudio ? '🔊 Audio MMS malgache disponible' : '🔈 Synthèse vocale du navigateur'}
+                    {hasAudio ? 'Audio MMS malgache disponible' : 'Synthèse vocale du navigateur'}
                   </div>
                 </div>
 
@@ -325,14 +323,14 @@ export default function PhrasesModuleView({ currentLang, kioskConfig }) {
                   <div className="mt-5 pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     {phrase.text_fr && (
                       <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
-                        <div className="text-xs font-bold text-slate-400 mb-0.5">🇫🇷 Français</div>
+                        <div className="text-xs font-bold text-slate-400 mb-0.5">Français</div>
                         <div className="font-semibold text-slate-200">{phrase.text_fr}</div>
                       </div>
                     )}
 
                     {phrase.text_en && (
                       <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
-                        <div className="text-xs font-bold text-slate-400 mb-0.5">🇬🇧 English</div>
+                        <div className="text-xs font-bold text-slate-400 mb-0.5">English</div>
                         <div className="font-semibold text-slate-200">{phrase.text_en}</div>
                       </div>
                     )}

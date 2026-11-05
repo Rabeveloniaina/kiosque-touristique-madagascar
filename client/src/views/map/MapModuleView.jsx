@@ -336,7 +336,7 @@ export default function MapModuleView({ currentLang, onLogItemClick, kioskConfig
             </div>
 
             <div className="text-xs text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800">
-              🚀 <b>Guidage direct activé :</b> Calcule automatiquement la route depuis votre position actuelle.
+              <b>Guidage direct activé :</b> Calcule automatiquement la route depuis votre position actuelle.
             </div>
 
             <button

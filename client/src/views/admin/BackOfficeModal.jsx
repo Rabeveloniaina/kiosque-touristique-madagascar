@@ -618,9 +618,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       setIsAddingPhrase(false);
       setEditingPhrase(null);
       setPhraseForm(initialPhraseForm);
-      setPhraseMsg(wasEditing ? '✅ Phrase mise à jour avec succès.' : '✅ Phrase ajoutée avec succès.');
+      setPhraseMsg(wasEditing ? 'Phrase mise à jour avec succès.' : 'Phrase ajoutée avec succès.');
     } catch (err) {
-      setPhraseMsg('❌ ' + err.message);
+      setPhraseMsg('Erreur : ' + err.message);
     }
   };
 
@@ -629,9 +629,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     try {
       await api.deletePhrase(phrase.id);
       await refreshPhrases();
-      setPhraseMsg('✅ Phrase supprimée.');
+      setPhraseMsg('Phrase supprimée.');
     } catch (err) {
-      setPhraseMsg('❌ ' + err.message);
+      setPhraseMsg('Erreur : ' + err.message);
     }
   };
 
@@ -640,19 +640,19 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       await api.updatePhrase(phrase.id, { is_active: phrase.is_active === 1 ? 0 : 1 });
       await refreshPhrases();
     } catch (err) {
-      setPhraseMsg('❌ ' + err.message);
+      setPhraseMsg('Erreur : ' + err.message);
     }
   };
 
   const handleGeneratePhraseAudio = async (phrase) => {
     setPhraseBusyId(phrase.id);
-    setPhraseMsg(`⏳ Génération MMS en cours pour « ${phrase.text_mg} »... Le premier lancement télécharge le modèle (~38 Mo).`);
+    setPhraseMsg(`Génération MMS en cours pour « ${phrase.text_mg} »... Le premier lancement télécharge le modèle (~38 Mo).`);
     try {
       await api.generatePhraseAudio(phrase.id);
       await refreshPhrases();
-      setPhraseMsg('✅ Audio MMS malgache généré avec succès.');
+      setPhraseMsg('Audio MMS malgache généré avec succès.');
     } catch (err) {
-      setPhraseMsg('❌ ' + err.message);
+      setPhraseMsg('Erreur : ' + err.message);
     } finally {
       setPhraseBusyId(null);
     }
@@ -660,17 +660,17 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   const handleGenerateMissingPhraseAudios = async () => {
     setPhraseBusyId('all');
-    setPhraseMsg('⏳ Génération des audios manquants... Le premier lancement peut prendre plusieurs minutes (modèle ~38 Mo).');
+    setPhraseMsg('Génération des audios manquants... Le premier lancement peut prendre plusieurs minutes (modèle ~38 Mo).');
     try {
       const res = await api.generateMissingPhraseAudios();
       await refreshPhrases();
       setPhraseMsg(
         res.skipped
-          ? '✅ Toutes les phrases disposent déjà d’un audio.'
-          : `✅ ${res.generated.length} audio(s) MMS généré(s).`
+          ? 'Toutes les phrases disposent déjà d’un audio.'
+          : `${res.generated.length} audio(s) MMS généré(s).`
       );
     } catch (err) {
-      setPhraseMsg('❌ ' + err.message);
+      setPhraseMsg('Erreur : ' + err.message);
     } finally {
       setPhraseBusyId(null);
     }
@@ -679,13 +679,13 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   const handleUploadPhraseAudio = async (phrase, file) => {
     if (!file) return;
     setPhraseBusyId(phrase.id);
-    setPhraseMsg(`⏳ Téléversement de l’audio pour « ${phrase.text_mg} »...`);
+    setPhraseMsg(`Téléversement de l’audio pour « ${phrase.text_mg} »...`);
     try {
       await api.uploadPhraseAudio(phrase.id, file);
       await refreshPhrases();
-      setPhraseMsg('✅ Fichier audio téléversé avec succès.');
+      setPhraseMsg('Fichier audio téléversé avec succès.');
     } catch (err) {
-      setPhraseMsg('❌ ' + err.message);
+      setPhraseMsg('Erreur : ' + err.message);
     } finally {
       setPhraseBusyId(null);
     }
@@ -696,9 +696,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     try {
       await api.deletePhraseAudio(phrase.id);
       await refreshPhrases();
-      setPhraseMsg('✅ Audio supprimé.');
+      setPhraseMsg('Audio supprimé.');
     } catch (err) {
-      setPhraseMsg('❌ ' + err.message);
+      setPhraseMsg('Erreur : ' + err.message);
     }
   };
 
@@ -706,7 +706,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     const url = resolveMediaUrl(phrase.audio_url || phrase.audio_key);
     if (!url) return;
     const audio = new Audio(url);
-    audio.play().catch(() => setPhraseMsg('❌ Impossible de lire cet audio.'));
+    audio.play().catch(() => setPhraseMsg('Erreur : Impossible de lire cet audio.'));
   };
 
   // --- USERS ACTIONS ---
@@ -1125,7 +1125,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                   {phraseMsg && (
                     <div
                       className={`mb-4 px-4 py-3 rounded-xl text-xs font-semibold border ${
-                        phraseMsg.startsWith('❌')
+                        phraseMsg.toLowerCase().includes('erreur') || phraseMsg.toLowerCase().includes('impossible')
                           ? 'bg-rose-950/50 border-rose-500/40 text-rose-200'
                           : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
                       }`}
@@ -1148,11 +1148,11 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                             onChange={(e) => setPhraseForm({ ...phraseForm, category: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
                           >
-                            <option value="salutations">👋 Salutations</option>
-                            <option value="restauration">🍽️ Restauration</option>
-                            <option value="transport">🚕 Transport</option>
-                            <option value="urgences">🆘 Urgences</option>
-                            <option value="commerce">🛍️ Commerce</option>
+                            <option value="salutations">Salutations</option>
+                            <option value="restauration">Restauration</option>
+                            <option value="transport">Transport</option>
+                            <option value="urgences">Urgences</option>
+                            <option value="commerce">Commerce</option>
                           </select>
                         </div>
                         <div>
@@ -1458,7 +1458,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
                   {isAddingPlace && (
                     <form onSubmit={handleSavePlace} className="bg-slate-950 border-2 border-blue-500/50 rounded-2xl p-6 mb-6">
-                      <h4 className="font-bold text-blue-400 mb-4">{editingPlace ? `✏️ Modifier : ${editingPlace.name}` : '➕ Nouveau Lieu Touristique'}</h4>
+                      <h4 className="font-bold text-blue-400 mb-4">{editingPlace ? `Modifier : ${editingPlace.name}` : 'Nouveau Lieu Touristique'}</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <label className="text-xs text-slate-400 font-bold block mb-1">Nom du lieu *</label>
@@ -1477,22 +1477,22 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                             onChange={(e) => setPlaceForm({ ...placeForm, category: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
                           >
-                            <option value="patrimoine">🏛️ Patrimoine & Histoire</option>
-                            <option value="nature">🌿 Nature & Parcs nationaux</option>
-                            <option value="agrotourisme">🍃 Agrotourisme & Terroir</option>
-                            <option value="aventure">🚂 Aventure & Train FCE</option>
-                            <option value="hotel">🏨 Hébergement / Hôtel</option>
-                            <option value="restaurant">🍽️ Bonne Table / Restaurant</option>
-                            <option value="guide">🧭 Guides & Circuits</option>
-                            <option value="transport">🚗 Transport & Location</option>
-                            <option value="artisanat">🎨 Artisanat & Ateliers</option>
-                            <option value="boutique">🛍️ Boutiques & Commerces</option>
-                            <option value="marche">🏪 Marchés & Zoma</option>
-                            <option value="musee">🖼️ Musées & Galeries</option>
-                            <option value="panorama">🔭 Panoramas & Belvédères</option>
-                            <option value="therme">💧 Thermes & Bien-être</option>
-                            <option value="religieux">⛪ Sites Religieux</option>
-                            <option value="sport">⛺ Sports & Loisirs</option>
+                            <option value="patrimoine">Patrimoine & Histoire</option>
+                            <option value="nature">Nature & Parcs nationaux</option>
+                            <option value="agrotourisme">Agrotourisme & Terroir</option>
+                            <option value="aventure">Aventure & Circuits</option>
+                            <option value="hotel">Hébergement / Hôtel</option>
+                            <option value="restaurant">Bonne Table / Restaurant</option>
+                            <option value="guide">Guides & Circuits</option>
+                            <option value="transport">Transport & Location</option>
+                            <option value="artisanat">Artisanat & Ateliers</option>
+                            <option value="boutique">Boutiques & Commerces</option>
+                            <option value="marche">Marchés & Artisanat</option>
+                            <option value="musee">Musées & Galeries</option>
+                            <option value="panorama">Panoramas & Belvédères</option>
+                            <option value="therme">Thermes & Bien-être</option>
+                            <option value="religieux">Sites Religieux</option>
+                            <option value="sport">Sports & Loisirs</option>
                           </select>
                         </div>
                         <div>
@@ -1510,7 +1510,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                       {/* Descriptions multilingues */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">🇫🇷 Description (Français)</label>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Description (Français)</label>
                           <textarea rows="3"
                             value={placeForm.desc_fr}
                             onChange={(e) => setPlaceForm({ ...placeForm, desc_fr: e.target.value })}
@@ -1519,7 +1519,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">🇲🇬 Fampahalalana (Malagasy)</label>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Fampahalalana (Malagasy)</label>
                           <textarea rows="3"
                             value={placeForm.desc_mg}
                             onChange={(e) => setPlaceForm({ ...placeForm, desc_mg: e.target.value })}
@@ -1528,7 +1528,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">🇬🇧 Description (English)</label>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Description (English)</label>
                           <textarea rows="3"
                             value={placeForm.desc_en}
                             onChange={(e) => setPlaceForm({ ...placeForm, desc_en: e.target.value })}
@@ -1539,10 +1539,10 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                       </div>
 
                       <div className="mb-4">
-                        <label className="text-xs text-slate-400 font-bold block mb-1">🗺️ Étapes de l'itinéraire (conseils de trajet)</label>
+                        <label className="text-xs text-slate-400 font-bold block mb-1">Étapes de l'itinéraire (conseils de trajet)</label>
                         <textarea
                           rows="2"
-                          placeholder="Ex: Depuis la Gare FCE, remonter l'Avenue Royale vers Ampitakely..."
+                          placeholder="Ex: Depuis la Gare, remonter l'Avenue principale vers le centre..."
                           value={placeForm.itinerary_steps}
                           onChange={(e) => setPlaceForm({ ...placeForm, itinerary_steps: e.target.value })}
                           className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
@@ -1551,7 +1551,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">📸 Photo du lieu (URL ou téléverser)</label>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Photo du lieu (URL ou téléverser)</label>
                           <div className="space-y-2">
                             <div className="flex space-x-3 text-xs text-slate-300">
                               <label className="flex items-center space-x-1 cursor-pointer">
@@ -1578,7 +1578,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           </div>
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">📍 Coordonnées GPS (pour QR Code itinéraire)</label>
+                          <label className="text-xs text-slate-400 font-bold block mb-1">Coordonnées GPS (pour QR Code itinéraire)</label>
                           <div className="flex space-x-2">
                             <input
                               type="number" step="0.0001" placeholder="Latitude"
@@ -1602,7 +1602,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                             </button>
                           </div>
                           <p className="text-[10px] text-slate-500 mt-1">
-                            📍 {placeForm.lat?.toFixed(4)}, {placeForm.lng?.toFixed(4)} — <span className="text-amber-400/70">cliquez la carte pour préciser</span>
+                            {placeForm.lat?.toFixed(4)}, {placeForm.lng?.toFixed(4)} — <span className="text-amber-400/70">cliquez la carte pour préciser</span>
                           </p>
                         </div>
                       </div>
@@ -1611,7 +1611,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         type="submit"
                         className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs uppercase"
                       >
-                        {editingPlace ? `✏️ Mettre à jour : ${editingPlace.name}` : '✅ Enregistrer le nouveau lieu'}
+                        {editingPlace ? `Mettre à jour : ${editingPlace.name}` : 'Enregistrer le nouveau lieu'}
                       </button>
                     </form>
                   )}
@@ -1958,9 +1958,9 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     <div className="bg-slate-950 p-5 rounded-2xl border border-violet-900/50 text-center">
                       <Globe2 className="w-6 h-6 text-violet-400 mx-auto" />
                       <div className="flex justify-around mt-2 text-sm font-mono font-bold">
-                        <div className="text-center"><div className="text-white">{stats?.languages?.mg || 0}</div><div className="text-[10px] text-slate-500">🇲🇬 MG</div></div>
-                        <div className="text-center"><div className="text-white">{stats?.languages?.fr || 0}</div><div className="text-[10px] text-slate-500">🇫🇷 FR</div></div>
-                        <div className="text-center"><div className="text-white">{stats?.languages?.en || 0}</div><div className="text-[10px] text-slate-500">🇬🇧 EN</div></div>
+                        <div className="text-center"><div className="text-white">{stats?.languages?.mg || 0}</div><div className="text-[10px] text-slate-500">MG</div></div>
+                        <div className="text-center"><div className="text-white">{stats?.languages?.fr || 0}</div><div className="text-[10px] text-slate-500">FR</div></div>
+                        <div className="text-center"><div className="text-white">{stats?.languages?.en || 0}</div><div className="text-[10px] text-slate-500">EN</div></div>
                       </div>
                       <div className="text-xs text-slate-400 uppercase font-bold mt-1">Langues</div>
                     </div>
@@ -2303,7 +2303,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                               </div>
                             ) : (
                               <div className="py-2 text-center text-xs text-emerald-400/80 font-bold bg-emerald-950/20 rounded-xl border border-emerald-500/20">
-                                ✓ Emplacement actuel du kiosque
+                                Emplacement actuel du kiosque
                               </div>
                             )}
                           </div>
@@ -2425,7 +2425,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           Le kiosque n'affichera désormais que les établissements, la météo en direct et les événements de <b>{confirmSwitchTarget.city}</b>.
                         </p>
                         <div className="p-3 my-4 bg-slate-950 rounded-xl border border-slate-800 text-left text-xs text-slate-400">
-                          💡 <b>Conservation garantie :</b> Toutes les données de <b>{kioskConfigData?.active_city}</b> resteront archivées en sécurité. Si vous y revenez plus tard, vous retrouverez tous vos ajouts manuels.
+                          <b>Conservation garantie :</b> Toutes les données de <b>{kioskConfigData?.active_city}</b> resteront archivées en sécurité. Si vous y revenez plus tard, vous retrouverez tous vos ajouts manuels.
                         </div>
 
                         <div className="flex space-x-3 mt-6">
@@ -2477,7 +2477,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           <div>• <b>{cityToDelete.emergency_count || 0}</b> contacts d'urgence</div>
                         </div>
                         <p className="text-rose-400 text-xs font-semibold mb-4">
-                          ⚠️ Cette action est irréversible pour la ville sélectionnée.
+                          Cette action est irréversible pour la ville sélectionnée.
                         </p>
 
                         <div className="flex space-x-3 mt-4">

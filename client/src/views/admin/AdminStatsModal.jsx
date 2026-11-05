@@ -103,10 +103,10 @@ export default function AdminStatsModal({ isOpen, onClose }) {
 
               <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 text-center col-span-2 md:col-span-1">
                 <Globe2 className="w-5 h-5 text-amber-400 mx-auto" />
-                <div className="text-xs text-slate-300 mt-2 flex justify-around font-mono">
-                  <span>🇲🇬 {stats?.languages.mg || 0}</span>
-                  <span>🇫🇷 {stats?.languages.fr || 0}</span>
-                  <span>🇬🇧 {stats?.languages.en || 0}</span>
+                <div className="text-xs text-slate-300 mt-2 flex justify-around font-mono font-bold">
+                  <span>MG: {stats?.languages.mg || 0}</span>
+                  <span>FR: {stats?.languages.fr || 0}</span>
+                  <span>EN: {stats?.languages.en || 0}</span>
                 </div>
                 <div className="text-xs text-slate-400 uppercase font-bold mt-2">Langues choisies</div>
               </div>

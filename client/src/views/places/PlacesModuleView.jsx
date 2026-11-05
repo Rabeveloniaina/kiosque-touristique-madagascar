@@ -308,7 +308,7 @@ export default function PlacesModuleView({ currentLang, kioskConfig }) {
                         className="w-40 h-40 mx-auto"
                       />
                       <p className="text-slate-700 text-xs font-bold mt-2">
-                        📱 Scannez pour l'itinéraire vers
+                        Scannez pour l'itinéraire vers
                       </p>
                       <p className="text-slate-900 text-sm font-black">{place.name}</p>
                     </div>

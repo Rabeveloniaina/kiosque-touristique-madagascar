@@ -66,6 +66,28 @@ function parseSortOrder(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function getNextSortOrder(category) {
+  const row = db.prepare('SELECT MAX(sort_order) AS max_order FROM phrases WHERE category = ?').get(category);
+  return (Number.isFinite(row?.max_order) ? row.max_order : 0) + 10;
+}
+
+function getAllPhrasesSorted() {
+  return db.prepare(`
+    SELECT * FROM phrases
+    ORDER BY
+      CASE category
+        WHEN 'salutations' THEN 1
+        WHEN 'restauration' THEN 2
+        WHEN 'transport' THEN 3
+        WHEN 'urgences' THEN 4
+        WHEN 'commerce' THEN 5
+        ELSE 6
+      END,
+      sort_order ASC,
+      id ASC
+  `).all();
+}
+
 // Génération MMS dans un processus séparé : le modèle ONNX n'occupe pas la
 // mémoire du serveur Express et est libéré dès la fin de la synthèse.
 let ttsRunning = false;
@@ -122,7 +144,6 @@ function runTtsScript(args) {
   });
 }
 
-// 1. PUBLIC: phrases actives pour le kiosque
 router.get('/', (req, res) => {
   try {
     const phrases = db.prepare(`
@@ -147,23 +168,9 @@ router.get('/', (req, res) => {
   }
 });
 
-// 2. ADMIN: toutes les phrases (actives et masquées)
 router.get('/all', authMiddleware, (req, res) => {
   try {
-    const phrases = db.prepare(`
-      SELECT * FROM phrases
-      ORDER BY
-        CASE category
-          WHEN 'salutations' THEN 1
-          WHEN 'restauration' THEN 2
-          WHEN 'transport' THEN 3
-          WHEN 'urgences' THEN 4
-          WHEN 'commerce' THEN 5
-          ELSE 6
-        END,
-        sort_order ASC,
-        id ASC
-    `).all();
+    const phrases = getAllPhrasesSorted();
     res.json(phrases.map(mapPhrase));
   } catch (err) {
     console.error('[PHRASES] Erreur liste admin:', err);
@@ -171,7 +178,6 @@ router.get('/all', authMiddleware, (req, res) => {
   }
 });
 
-// 3. ADMIN: créer une phrase
 router.post('/', authMiddleware, (req, res) => {
   try {
     const text_mg = String(req.body.text_mg || '').trim();
@@ -179,16 +185,23 @@ router.post('/', authMiddleware, (req, res) => {
       return res.status(400).json({ error: 'La phrase en malgache est obligatoire.' });
     }
 
+    const category = normalizeCategory(req.body.category);
+    const hasExplicitSortOrder =
+      req.body.sort_order !== undefined && req.body.sort_order !== null && req.body.sort_order !== '';
+    const sort_order = hasExplicitSortOrder
+      ? parseSortOrder(req.body.sort_order, 0)
+      : getNextSortOrder(category);
+
     const result = db.prepare(`
       INSERT INTO phrases (category, text_mg, text_fr, text_en, pronunciation, sort_order, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
-      normalizeCategory(req.body.category),
+      category,
       text_mg,
       String(req.body.text_fr || '').trim(),
       String(req.body.text_en || '').trim(),
       String(req.body.pronunciation || '').trim(),
-      parseSortOrder(req.body.sort_order, 0),
+      sort_order,
       req.body.is_active === undefined ? 1 : (req.body.is_active ? 1 : 0)
     );
 
@@ -200,7 +213,53 @@ router.post('/', authMiddleware, (req, res) => {
   }
 });
 
-// 4. ADMIN: modifier une phrase (mise à jour totale ou partielle)
+router.put('/reorder', authMiddleware, (req, res) => {
+  try {
+    const category = String(req.body.category || '').trim();
+    if (!category) {
+      return res.status(400).json({ error: 'Catégorie manquante.' });
+    }
+
+    const orderedIds = Array.isArray(req.body.orderedIds)
+      ? req.body.orderedIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+      : [];
+
+    if (orderedIds.length === 0 || new Set(orderedIds).size !== orderedIds.length) {
+      return res.status(400).json({ error: 'Liste de réordonnancement invalide.' });
+    }
+
+    const categoryRows = db.prepare('SELECT id FROM phrases WHERE category = ?').all(category);
+    const categoryIds = new Set(categoryRows.map((row) => row.id));
+    const isCompleteList =
+      orderedIds.length === categoryRows.length && orderedIds.every((id) => categoryIds.has(id));
+
+    if (!isCompleteList) {
+      return res.status(409).json({
+        error: 'La liste des phrases a changé. Rechargez les phrases avant de réessayer.'
+      });
+    }
+
+    const applyOrder = db.transaction((ids) => {
+      const update = db.prepare(`
+        UPDATE phrases
+        SET sort_order = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND category = ?
+      `);
+      ids.forEach((id, index) => update.run((index + 1) * 10, id, category));
+    });
+
+    applyOrder(orderedIds);
+
+    res.json({
+      success: true,
+      phrases: getAllPhrasesSorted().map(mapPhrase)
+    });
+  } catch (err) {
+    console.error('[PHRASES] Erreur réordonnancement:', err);
+    res.status(500).json({ error: 'Erreur lors du réordonnancement des phrases.' });
+  }
+});
+
 router.put('/:id', authMiddleware, (req, res) => {
   try {
     const existing = getPhrase(req.params.id);
@@ -223,7 +282,9 @@ router.put('/:id', authMiddleware, (req, res) => {
       : existing.pronunciation;
     const sort_order = req.body.sort_order !== undefined
       ? parseSortOrder(req.body.sort_order, existing.sort_order)
-      : existing.sort_order;
+      : category !== existing.category
+        ? getNextSortOrder(category)
+        : existing.sort_order;
     const is_active = req.body.is_active !== undefined
       ? (req.body.is_active ? 1 : 0)
       : existing.is_active;
@@ -242,7 +303,6 @@ router.put('/:id', authMiddleware, (req, res) => {
   }
 });
 
-// 5. ADMIN: supprimer une phrase (et son audio)
 router.delete('/:id', authMiddleware, (req, res) => {
   try {
     const phrase = getPhrase(req.params.id);
@@ -258,7 +318,6 @@ router.delete('/:id', authMiddleware, (req, res) => {
   }
 });
 
-// 6. ADMIN: générer l'audio malgache avec MMS-TTS
 router.post('/:id/tts', authMiddleware, async (req, res) => {
   try {
     const phrase = getPhrase(req.params.id);
@@ -278,7 +337,6 @@ router.post('/:id/tts', authMiddleware, async (req, res) => {
   }
 });
 
-// 7. ADMIN: générer tous les audios manquants
 router.post('/tts-all', authMiddleware, async (req, res) => {
   try {
     const result = await runTtsScript(['--missing']);
@@ -295,7 +353,6 @@ router.post('/tts-all', authMiddleware, async (req, res) => {
   }
 });
 
-// 8. ADMIN: téléverser un fichier audio personnalisé
 router.post('/:id/audio', authMiddleware, upload.single('audioFile'), (req, res) => {
   try {
     const phrase = getPhrase(req.params.id);
@@ -319,7 +376,6 @@ router.post('/:id/audio', authMiddleware, upload.single('audioFile'), (req, res)
   }
 });
 
-// 9. ADMIN: supprimer l'audio d'une phrase
 router.delete('/:id/audio', authMiddleware, (req, res) => {
   try {
     const phrase = getPhrase(req.params.id);

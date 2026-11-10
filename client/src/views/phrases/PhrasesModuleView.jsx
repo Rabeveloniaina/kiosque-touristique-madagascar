@@ -132,7 +132,7 @@ export default function PhrasesModuleView({ currentLang, kioskConfig }) {
     setPlayingId(null);
   };
 
-  // Repli si aucun fichier audio MMS n'est disponible pour la phrase.
+
   // On privilégie une voix malgache si le navigateur en propose une.
   const speakFallback = (phrase) => {
     if (!('speechSynthesis' in window)) {
@@ -314,7 +314,7 @@ export default function PhrasesModuleView({ currentLang, kioskConfig }) {
                   )}
 
                   <div className="text-[10px] text-slate-500 mt-1.5 font-semibold uppercase tracking-wide">
-                    {hasAudio ? 'Audio MMS malgache disponible' : 'Synthèse vocale du navigateur'}
+                    {hasAudio ? 'Audio malgache disponible' : 'Synthèse vocale'}
                   </div>
                 </div>
 

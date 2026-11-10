@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "@mediapipe/tasks-vision": "^1.2.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.67.0",

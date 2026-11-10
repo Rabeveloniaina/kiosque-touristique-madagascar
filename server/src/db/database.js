@@ -223,8 +223,6 @@ function seedPhrases() {
 
 initDatabase();
 
-// Warn at startup if legacy U+FFFD replacement characters are still stored.
-// They indicate data corrupted by the old latin1 -> utf8 conversion bug.
 function checkForCorruptedText() {
   const replacementChar = '\uFFFD';
   const tables = db

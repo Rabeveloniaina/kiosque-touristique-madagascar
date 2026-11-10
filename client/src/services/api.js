@@ -49,7 +49,7 @@ export const api = {
       body: JSON.stringify(userData)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur création compte.');
+    if (!res.ok) throw new Error(data.error || 'Impossible de créer le compte.');
     return data;
   },
 
@@ -60,7 +60,7 @@ export const api = {
       body: JSON.stringify(profileData)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur mise à jour profil.');
+    if (!res.ok) throw new Error(data.error || 'Impossible de mettre à jour le profil.');
     if (data.token) {
       localStorage.setItem('kiosk_admin_token', data.token);
     }
@@ -73,7 +73,7 @@ export const api = {
       headers: { ...getAuthHeader() }
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur suppression.');
+    if (!res.ok) throw new Error(data.error || 'Suppression impossible.');
     return data;
   },
 
@@ -81,7 +81,7 @@ export const api = {
   async getActiveAds() {
     try {
       const res = await fetch(`${API_BASE_URL}/ads`);
-      if (!res.ok) throw new Error('API non disponible');
+      if (!res.ok) throw new Error('Service indisponible.');
       return await res.json();
     } catch {
       return null;
@@ -103,7 +103,7 @@ export const api = {
       body: formData
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur lors de l’ajout.');
+    if (!res.ok) throw new Error(data.error || 'Ajout impossible.');
     return data;
   },
 
@@ -114,7 +114,7 @@ export const api = {
       body: formData
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur mise à jour.');
+    if (!res.ok) throw new Error(data.error || 'Mise à jour impossible.');
     return data;
   },
 
@@ -146,7 +146,7 @@ export const api = {
         url += `?category=${encodeURIComponent(categoryOrScope)}`;
       }
       const res = await fetch(url);
-      if (!res.ok) throw new Error('Erreur');
+      if (!res.ok) throw new Error('Impossible de charger les données.');
       return await res.json();
     } catch {
       return null;
@@ -161,7 +161,7 @@ export const api = {
       body: JSON.stringify({ city })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur importation OSM');
+    if (!res.ok) throw new Error(data.error || 'Importation impossible.');
     return data;
   },
 
@@ -172,7 +172,7 @@ export const api = {
       body: formData
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur ajout lieu.');
+    if (!res.ok) throw new Error(data.error || 'Impossible d’ajouter le lieu.');
     return data;
   },
 
@@ -183,7 +183,7 @@ export const api = {
       body: formData
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur mise à jour lieu.');
+    if (!res.ok) throw new Error(data.error || 'Impossible de mettre à jour le lieu.');
     return data;
   },
 
@@ -199,7 +199,7 @@ export const api = {
   async getEvents() {
     try {
       const res = await fetch(`${API_BASE_URL}/events`);
-      if (!res.ok) throw new Error('Erreur');
+      if (!res.ok) throw new Error('Impossible de charger les données.');
       return await res.json();
     } catch {
       return null;
@@ -213,7 +213,7 @@ export const api = {
       body: JSON.stringify(eventData)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur ajout événement.');
+    if (!res.ok) throw new Error(data.error || 'Impossible d’ajouter l’événement.');
     return data;
   },
 
@@ -224,7 +224,7 @@ export const api = {
       body: JSON.stringify(eventData)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur mise à jour événement.');
+    if (!res.ok) throw new Error(data.error || 'Impossible de mettre à jour l’événement.');
     return data;
   },
 
@@ -240,7 +240,7 @@ export const api = {
   async getEmergency() {
     try {
       const res = await fetch(`${API_BASE_URL}/emergency`);
-      if (!res.ok) throw new Error('Erreur');
+      if (!res.ok) throw new Error('Impossible de charger les données.');
       return await res.json();
     } catch {
       return null;
@@ -254,7 +254,7 @@ export const api = {
       body: JSON.stringify(contactData)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur ajout contact urgence.');
+    if (!res.ok) throw new Error(data.error || 'Impossible d’ajouter le contact.');
     return data;
   },
 
@@ -265,7 +265,7 @@ export const api = {
       body: JSON.stringify(contactData)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur modification contact.');
+    if (!res.ok) throw new Error(data.error || 'Impossible de modifier le contact.');
     return data;
   },
 
@@ -281,7 +281,7 @@ export const api = {
   async getPhrases() {
     try {
       const res = await fetch(`${API_BASE_URL}/phrases`);
-      if (!res.ok) throw new Error('Erreur');
+      if (!res.ok) throw new Error('Impossible de charger les données.');
       return await res.json();
     } catch {
       return null;
@@ -294,6 +294,17 @@ export const api = {
     });
     if (!res.ok) throw new Error('Impossible de charger les phrases.');
     return await res.json();
+  },
+
+  async reorderPhrases(category, orderedIds) {
+    const res = await fetch(`${API_BASE_URL}/phrases/reorder`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ category, orderedIds })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erreur lors du réordonnancement des phrases.');
+    return data;
   },
 
   async createPhrase(phraseData) {
@@ -334,7 +345,7 @@ export const api = {
       headers: { ...getAuthHeader() }
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur lors de la génération audio MMS.');
+    if (!res.ok) throw new Error(data.error || 'La génération audio a échoué.');
     return data;
   },
 
@@ -344,7 +355,7 @@ export const api = {
       headers: { ...getAuthHeader() }
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur lors de la génération audio MMS.');
+    if (!res.ok) throw new Error(data.error || 'La génération audio a échoué.');
     return data;
   },
 
@@ -395,7 +406,7 @@ export const api = {
   async getSummaryStats() {
     try {
       const res = await fetch(`${API_BASE_URL}/stats/summary`);
-      if (!res.ok) throw new Error('Erreur stats');
+      if (!res.ok) throw new Error('Impossible de charger les statistiques.');
       return await res.json();
     } catch {
       return null;
@@ -414,7 +425,7 @@ export const api = {
   async getKioskConfig() {
     try {
       const res = await fetch(`${API_BASE_URL}/config`);
-      if (!res.ok) throw new Error('Erreur configuration kiosque');
+      if (!res.ok) throw new Error('Impossible de charger la configuration.');
       return await res.json();
     } catch (e) {
       console.warn('Erreur getKioskConfig:', e);
@@ -438,7 +449,7 @@ export const api = {
       body: JSON.stringify({ query })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur recherche de ville.');
+    if (!res.ok) throw new Error(data.error || 'Recherche de ville impossible.');
     return data;
   },
 
@@ -449,7 +460,7 @@ export const api = {
       body: JSON.stringify(payload)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur déplacement du kiosque.');
+    if (!res.ok) throw new Error(data.error || 'Déplacement du kiosque impossible.');
     return data;
   },
 
@@ -459,14 +470,14 @@ export const api = {
       headers: { ...getAuthHeader() }
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur suppression de la ville.');
+    if (!res.ok) throw new Error(data.error || 'Suppression de la ville impossible.');
     return data;
   },
 
   async getIpLocation() {
     const res = await fetch(`${API_BASE_URL}/config/ip-location`);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur géolocalisation IP.');
+    if (!res.ok) throw new Error(data.error || 'Localisation impossible.');
     return data;
   },
 
@@ -477,7 +488,7 @@ export const api = {
       body: JSON.stringify({ lat, lng })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur calibration position GPS.');
+    if (!res.ok) throw new Error(data.error || 'Calibration GPS impossible.');
     return data;
   },
 
@@ -488,7 +499,7 @@ export const api = {
       body: JSON.stringify(coords)
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Erreur enregistrement coordonnées.');
+    if (!res.ok) throw new Error(data.error || 'Enregistrement des coordonnées impossible.');
     return data;
   }
 };

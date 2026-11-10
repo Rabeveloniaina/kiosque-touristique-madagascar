@@ -219,8 +219,8 @@ Depuis le kiosque, deux méthodes d'accès sont disponibles :
 | **Lieux & Itinéraires** | Gestion des sites touristiques, coordonnées GPS, photos et étapes de parcours |
 | **Événements & Météo** | Programmation d'événements avec dates d'expiration et météo en temps réel |
 | **Urgences** | Répertoire des services d'urgence locaux (hôpitaux, police, pompiers, pharmacies) |
-| **Phrases utiles** | Gestion des expressions trilingues avec génération audio MMS-TTS |
-| **Configuration Ville** | Changement de la ville active du kiosque avec import automatique OpenStreetMap (Overpass API) |
+| **Phrases utiles** | Gestion des expressions trilingues, réordonnancement par glisser-déposer dans chaque catégorie et génération audio MMS-TTS |
+| **Configuration Ville** | Changement de la ville active du kiosque avec import automatique résilient multi-sources OpenStreetMap (Nominatim / Overpass / Wikimedia) |
 | **Statistiques** | Télémétrie anonyme : nombre de visites, langues choisies, fonctionnalités les plus consultées |
 | **Comptes Admin** | Gestion des utilisateurs et mots de passe d'administration |
 

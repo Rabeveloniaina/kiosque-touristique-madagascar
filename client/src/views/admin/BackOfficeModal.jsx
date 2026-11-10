@@ -1,15 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
-  X, Lock, Megaphone, BarChart3, Settings, Plus, Trash2, Power, 
-  Clock, Globe2, Users, Check, AlertCircle, Upload, Link as LinkIcon, 
-  MapPin, Calendar, ShieldAlert, Edit, Save, UserPlus, KeyRound,
+  X, Lock, Megaphone, BarChart3, Plus, Trash2, Power,
+  Clock, Globe2, Users, Check, AlertCircle,
+  MapPin, Calendar, ShieldAlert, Edit, UserPlus, KeyRound,
   Download, Sparkles, Navigation, Compass, Layers, RefreshCw, Crosshair, Loader2,
-  Languages, Volume2
+  Languages
 } from 'lucide-react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
 import { api, resolveMediaUrl } from '../../services/api';
-import { analytics } from '../../services/analytics';
 import LocationPickerModal from '../../components/LocationPickerModal';
 import { getDevicePosition } from '../../utils/geolocation';
+import SortablePhraseCard from './SortablePhraseCard';
+
+const PHRASE_CATEGORY_ORDER = ['salutations', 'restauration', 'transport', 'urgences', 'commerce'];
+const PHRASE_CATEGORY_LABELS = {
+  salutations: 'Salutations',
+  restauration: 'Restauration',
+  transport: 'Transport',
+  urgences: 'Urgences',
+  commerce: 'Commerce'
+};
+
+function applyPhraseOrder(currentPhrases, category, orderedIds) {
+  const categoryItems = currentPhrases.filter(
+    (phrase) => (phrase.category || 'salutations') === category
+  );
+  if (categoryItems.length !== orderedIds.length) return currentPhrases;
+
+  const itemsById = new Map(currentPhrases.map((phrase) => [phrase.id, phrase]));
+  const reorderedItems = orderedIds
+    .map((id, index) => {
+      const phrase = itemsById.get(id);
+      return phrase ? { ...phrase, sort_order: (index + 1) * 10 } : null;
+    })
+    .filter(Boolean);
+
+  let cursor = 0;
+  return currentPhrases.map((phrase) => {
+    if ((phrase.category || 'salutations') !== category) return phrase;
+    const replacement = reorderedItems[cursor];
+    cursor += 1;
+    return replacement || phrase;
+  });
+}
 
 export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityChanged }) {
   // Navigation tabs: 'ads' | 'places' | 'events' | 'phrases' | 'emergency' | 'config' | 'stats' | 'users'
@@ -22,7 +68,21 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   // Map Picker State
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
-  const [mapPickerTarget, setMapPickerTarget] = useState(null); // 'places' | 'events' | 'emergency' | 'kiosk'
+  const [mapPickerTarget, setMapPickerTarget] = useState(null);
+
+  const adFormRef = useRef(null);
+  const phraseFormRef = useRef(null);
+  const placeFormRef = useRef(null);
+  const eventFormRef = useRef(null);
+  const emergencyFormRef = useRef(null);
+
+  const scrollToForm = (formRef) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  };
 
   // 1. Ads state
   const [ads, setAds] = useState([]);
@@ -46,12 +106,50 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     text_fr: '',
     text_en: '',
     pronunciation: '',
-    sort_order: 10,
     is_active: 1
   };
   const [phraseForm, setPhraseForm] = useState(initialPhraseForm);
   const [phraseBusyId, setPhraseBusyId] = useState(null);
+  const [phraseReorderBusy, setPhraseReorderBusy] = useState(false);
+  const phraseReorderLock = useRef(false);
   const [phraseMsg, setPhraseMsg] = useState('');
+  const phraseSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const phraseGroups = useMemo(() => {
+    const groups = new Map();
+    for (const phrase of phrases) {
+      const category = phrase.category || 'salutations';
+      if (!groups.has(category)) groups.set(category, []);
+      groups.get(category).push(phrase);
+    }
+
+    const knownCategories = PHRASE_CATEGORY_ORDER.filter((category) => groups.has(category));
+    const otherCategories = [...groups.keys()]
+      .filter((category) => !PHRASE_CATEGORY_ORDER.includes(category))
+      .sort((a, b) => a.localeCompare(b));
+
+    return [...knownCategories, ...otherCategories].map((category) => ({
+      category,
+      label: PHRASE_CATEGORY_LABELS[category] || category,
+      items: groups.get(category) || []
+    }));
+  }, [phrases]);
+
+  const phraseCollisionDetection = useCallback((args) => {
+    const activePhrase = phrases.find((phrase) => String(phrase.id) === String(args.active.id));
+    if (!activePhrase) return closestCenter(args);
+
+    const activeCategory = activePhrase.category || 'salutations';
+    const containersInCategory = args.droppableContainers.filter((container) => {
+      const phrase = phrases.find((item) => String(item.id) === String(container.id));
+      return phrase && (phrase.category || 'salutations') === activeCategory;
+    });
+
+    return closestCenter({ ...args, droppableContainers: containersInCategory });
+  }, [phrases]);
 
   // 3. Places state
   const [places, setPlaces] = useState([]);
@@ -309,6 +407,23 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     setEditingAd(null);
     setAdForm({ ...initialAdForm });
     setIsAddingAd(true);
+    scrollToForm(adFormRef);
+  };
+
+  const handleEditAd = (ad) => {
+    setEditingAd(ad);
+    setAdForm({
+      title_fr: ad.title_fr,
+      title_mg: ad.title_mg && ad.title_mg !== ad.title_fr ? ad.title_mg : '',
+      subtitle_fr: ad.subtitle_fr || '',
+      badge: ad.badge || '',
+      duration_seconds: ad.duration_seconds || 7,
+      mediaMode: 'url',
+      media_url: ad.media_url,
+      mediaFile: null
+    });
+    setIsAddingAd(true);
+    scrollToForm(adFormRef);
   };
 
   const handleSaveAd = async (e) => {
@@ -317,7 +432,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       const formData = new FormData();
       formData.append('title_fr', adForm.title_fr);
       formData.append('title_mg', adForm.title_mg || adForm.title_fr);
-      // Le schéma backend conserve title_en pour compatibilité ; il n'est plus exposé.
       formData.append('title_en', adForm.title_fr);
       formData.append('subtitle_fr', adForm.subtitle_fr || '');
       formData.append('badge', adForm.badge || 'Partenaire');
@@ -365,7 +479,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   // --- PLACES ACTIONS ---
   const handleOpenAddPlace = () => {
     setEditingPlace(null);
-    // Deep copy pour éviter toute référence partagée avec le dernier état édité
+  
     setPlaceForm({
       name: '', category: 'patrimoine',
       desc_fr: '', desc_mg: '', desc_en: '',
@@ -374,6 +488,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       photo_url: '', photoFile: null, photoMode: 'url'
     });
     setIsAddingPlace(true);
+    scrollToForm(placeFormRef);
   };
 
   const handleEditPlace = (place) => {
@@ -395,6 +510,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       photoMode: 'url'
     });
     setIsAddingPlace(true);
+    scrollToForm(placeFormRef);
   };
 
   const handleSavePlace = async (e) => {
@@ -432,7 +548,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       const updated = await api.getPlaces();
       setPlaces(updated);
     } catch (err) {
-      alert('Erreur lieu : ' + err.message);
+      alert('Erreur lors de l’enregistrement du lieu : ' + err.message);
     }
   };
 
@@ -470,6 +586,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       lat: activeLat, lng: activeLng
     });
     setIsAddingEvent(true);
+    scrollToForm(eventFormRef);
   };
 
   const handleEditEvent = (evt) => {
@@ -486,6 +603,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       lng: evt.lng || activeLng
     });
     setIsAddingEvent(true);
+    scrollToForm(eventFormRef);
   };
 
   const handleSaveEvent = async (e) => {
@@ -507,7 +625,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       const updated = await api.getEvents();
       setEvents(updated);
     } catch (err) {
-      alert('Erreur événement : ' + err.message);
+      alert('Erreur lors de l’enregistrement de l’événement : ' + err.message);
     }
   };
 
@@ -527,6 +645,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       lat: activeLat, lng: activeLng
     });
     setIsAddingEmergency(true);
+    scrollToForm(emergencyFormRef);
   };
 
   const handleEditEmergency = (item) => {
@@ -540,6 +659,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       lng: item.lng || activeLng
     });
     setIsAddingEmergency(true);
+    scrollToForm(emergencyFormRef);
   };
 
   const handleSaveEmergency = async (e) => {
@@ -557,7 +677,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       const updated = await api.getEmergency();
       setEmergencyList(updated);
     } catch (err) {
-      alert('Erreur contact urgence : ' + err.message);
+      alert('Erreur lors de l’enregistrement du contact d’urgence : ' + err.message);
     }
   };
 
@@ -575,11 +695,69 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     setPhrases(list || []);
   };
 
+  const reorderPhraseCategory = async (category, orderedIds) => {
+    if (phraseReorderLock.current) return;
+    phraseReorderLock.current = true;
+    setPhraseReorderBusy(true);
+    setPhraseMsg('');
+
+    const previousPhrases = phrases;
+    setPhrases((current) => applyPhraseOrder(current, category, orderedIds));
+
+    try {
+      const data = await api.reorderPhrases(category, orderedIds);
+      if (Array.isArray(data.phrases)) {
+        setPhrases(data.phrases);
+      }
+    } catch (err) {
+      setPhrases(previousPhrases);
+      setPhraseMsg('Erreur : ' + err.message);
+    } finally {
+      phraseReorderLock.current = false;
+      setPhraseReorderBusy(false);
+    }
+  };
+
+  const handleMovePhrase = (phrase, direction) => {
+    if (phraseReorderLock.current) return;
+
+    const category = phrase.category || 'salutations';
+    const categoryPhrases = phrases.filter((item) => (item.category || 'salutations') === category);
+    const index = categoryPhrases.findIndex((item) => item.id === phrase.id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= categoryPhrases.length) return;
+
+    const reordered = [...categoryPhrases];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(nextIndex, 0, moved);
+    reorderPhraseCategory(category, reordered.map((item) => item.id));
+  };
+
+  const handlePhraseDragEnd = ({ active, over }) => {
+    if (!over || String(active.id) === String(over.id) || phraseReorderLock.current) return;
+
+    const activePhrase = phrases.find((phrase) => String(phrase.id) === String(active.id));
+    const overPhrase = phrases.find((phrase) => String(phrase.id) === String(over.id));
+    if (!activePhrase || !overPhrase) return;
+
+    const category = activePhrase.category || 'salutations';
+    if ((overPhrase.category || 'salutations') !== category) return;
+
+    const categoryPhrases = phrases.filter((item) => (item.category || 'salutations') === category);
+    const oldIndex = categoryPhrases.findIndex((item) => item.id === activePhrase.id);
+    const newIndex = categoryPhrases.findIndex((item) => item.id === overPhrase.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reordered = arrayMove(categoryPhrases, oldIndex, newIndex);
+    reorderPhraseCategory(category, reordered.map((item) => item.id));
+  };
+
   const handleOpenAddPhrase = () => {
     setEditingPhrase(null);
     setPhraseForm(initialPhraseForm);
     setPhraseMsg('');
     setIsAddingPhrase(true);
+    scrollToForm(phraseFormRef);
   };
 
   const handleEditPhrase = (phrase) => {
@@ -590,11 +768,11 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
       text_fr: phrase.text_fr || '',
       text_en: phrase.text_en || '',
       pronunciation: phrase.pronunciation || '',
-      sort_order: phrase.sort_order || 10,
       is_active: phrase.is_active === 1 ? 1 : 0
     });
     setPhraseMsg('');
     setIsAddingPhrase(true);
+    scrollToForm(phraseFormRef);
   };
 
   const handleSavePhrase = async (e) => {
@@ -604,7 +782,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     try {
       const payload = {
         ...phraseForm,
-        sort_order: parseInt(phraseForm.sort_order, 10) || 0,
         is_active: phraseForm.is_active ? 1 : 0
       };
 
@@ -646,11 +823,11 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   const handleGeneratePhraseAudio = async (phrase) => {
     setPhraseBusyId(phrase.id);
-    setPhraseMsg(`Génération MMS en cours pour « ${phrase.text_mg} »... Le premier lancement télécharge le modèle (~38 Mo).`);
+    setPhraseMsg(`Génération audio en cours pour « ${phrase.text_mg} »…`);
     try {
       await api.generatePhraseAudio(phrase.id);
       await refreshPhrases();
-      setPhraseMsg('Audio MMS malgache généré avec succès.');
+      setPhraseMsg('Audio généré avec succès.');
     } catch (err) {
       setPhraseMsg('Erreur : ' + err.message);
     } finally {
@@ -660,14 +837,14 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
   const handleGenerateMissingPhraseAudios = async () => {
     setPhraseBusyId('all');
-    setPhraseMsg('Génération des audios manquants... Le premier lancement peut prendre plusieurs minutes (modèle ~38 Mo).');
+    setPhraseMsg('Génération des audios manquants…');
     try {
       const res = await api.generateMissingPhraseAudios();
       await refreshPhrases();
       setPhraseMsg(
         res.skipped
           ? 'Toutes les phrases disposent déjà d’un audio.'
-          : `${res.generated.length} audio(s) MMS généré(s).`
+          : `${res.generated.length} audio(s) généré(s).`
       );
     } catch (err) {
       setPhraseMsg('Erreur : ' + err.message);
@@ -706,7 +883,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
     const url = resolveMediaUrl(phrase.audio_url || phrase.audio_key);
     if (!url) return;
     const audio = new Audio(url);
-    audio.play().catch(() => setPhraseMsg('Erreur : Impossible de lire cet audio.'));
+    audio.play().catch(() => setPhraseMsg('Impossible de lire cet audio.'));
   };
 
   // --- USERS ACTIONS ---
@@ -765,7 +942,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 md:p-6 select-none">
       <div className="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-6xl h-[92vh] flex flex-col text-white shadow-2xl overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-400/30">
@@ -785,7 +961,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
           </button>
         </div>
 
-        {/* Not Authenticated */}
         {!isAuthenticated ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
             <div className="w-16 h-16 rounded-3xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-4 border border-amber-400/30">
@@ -825,7 +1000,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
         ) : (
           /* Logged In Dashboard with Full Navigation Tabs */
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Nav Tabs */}
             <div className="flex items-center space-x-1 px-6 pt-2 bg-slate-950/80 border-b border-slate-800 overflow-x-auto scrollbar-none">
               {[
                 { id: 'ads', label: 'Publicités Veille', icon: Megaphone, count: ads.length },
@@ -860,9 +1034,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
               })}
             </div>
 
-            {/* TAB CONTENT CONTAINER */}
             <div className="flex-1 p-6 overflow-y-auto">
-              {/* 1. PUBLICITÉS TAB */}
               {activeTab === 'ads' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
@@ -892,7 +1064,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                   </div>
 
                   {isAddingAd && (
-                    <form onSubmit={handleSaveAd} className="bg-slate-950 border-2 border-amber-500/50 rounded-2xl p-6 mb-6 shadow-xl">
+                    <form ref={adFormRef} onSubmit={handleSaveAd} className="bg-slate-950 border-2 border-amber-500/50 rounded-2xl p-6 mb-6 shadow-xl">
                       <h4 className="font-bold text-amber-400 mb-4">{editingAd ? 'Modifier la publicité' : 'Nouvelle Publicité'}</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
@@ -1041,20 +1213,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
 
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => {
-                                setEditingAd(ad);
-                                setAdForm({
-                                  title_fr: ad.title_fr,
-                                  title_mg: ad.title_mg && ad.title_mg !== ad.title_fr ? ad.title_mg : '',
-                                  subtitle_fr: ad.subtitle_fr || '',
-                                  badge: ad.badge || '',
-                                  duration_seconds: ad.duration_seconds || 7,
-                                  mediaMode: 'url',
-                                  media_url: ad.media_url,
-                                  mediaFile: null
-                                });
-                                setIsAddingAd(true);
-                              }}
+                              onClick={() => handleEditAd(ad)}
                               className="text-amber-400 hover:text-amber-300 p-1.5"
                               title="Modifier"
                             >
@@ -1075,14 +1234,13 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 2. PHRASES UTILES TAB */}
               {activeTab === 'phrases' && (
                 <div>
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
                     <div>
                       <h3 className="text-xl font-black">Gestion des Phrases Utiles</h3>
                       <p className="text-xs text-slate-400">
-                        Ajoutez, modifiez, activez ou supprimez les expressions du module trilingue. Générez l’audio malgache avec MMS-TTS (Meta).
+                        Ajoutez, modifiez, activez ou supprimez les expressions du module trilingue. Glissez-déposez les phrases pour définir leur ordre dans chaque catégorie, puis générez l’audio malgache.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -1135,34 +1293,28 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                   )}
 
                   {isAddingPhrase && (
-                    <form onSubmit={handleSavePhrase} className="bg-slate-950 border-2 border-purple-500/50 rounded-2xl p-6 mb-6 shadow-xl">
+                    <form ref={phraseFormRef} onSubmit={handleSavePhrase} className="bg-slate-950 border-2 border-purple-500/50 rounded-2xl p-6 mb-6 shadow-xl">
                       <h4 className="font-bold text-purple-300 mb-4">
                         {editingPhrase ? 'Modifier la phrase' : 'Nouvelle phrase utile'}
                       </h4>
 
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div className="md:col-span-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
                           <label className="text-xs text-slate-400 font-bold block mb-1">Catégorie</label>
                           <select
                             value={phraseForm.category}
                             onChange={(e) => setPhraseForm({ ...phraseForm, category: e.target.value })}
                             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
                           >
-                            <option value="salutations">Salutations</option>
-                            <option value="restauration">Restauration</option>
-                            <option value="transport">Transport</option>
-                            <option value="urgences">Urgences</option>
-                            <option value="commerce">Commerce</option>
+                            {PHRASE_CATEGORY_ORDER.map((category) => (
+                              <option key={category} value={category}>
+                                {PHRASE_CATEGORY_LABELS[category]}
+                              </option>
+                            ))}
                           </select>
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400 font-bold block mb-1">Ordre d’affichage</label>
-                          <input
-                            type="number"
-                            value={phraseForm.sort_order}
-                            onChange={(e) => setPhraseForm({ ...phraseForm, sort_order: e.target.value })}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
-                          />
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            L’ordre d’affichage se gère ensuite par glisser-déposer dans la liste, à l’intérieur de chaque catégorie.
+                          </p>
                         </div>
                         <div className="flex items-end pb-2">
                           <label className="flex items-center space-x-2 text-xs font-bold text-slate-300 cursor-pointer">
@@ -1188,7 +1340,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white"
                         />
                         <p className="text-[10px] text-slate-500 mt-1">
-                          Si vous modifiez cette phrase, pensez à régénérer son audio MMS.
+                          Si vous modifiez cette phrase, pensez à régénérer son audio.
                         </p>
                       </div>
 
@@ -1235,153 +1387,68 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </form>
                   )}
 
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {phrases.map((phrase) => {
-                      const busy = phraseBusyId === phrase.id;
-                      const hasAudio = Boolean(phrase.audio_url || phrase.audio_key);
-
-                      return (
-                        <div
-                          key={phrase.id}
-                          className={`bg-slate-950 border-2 rounded-2xl p-4 flex flex-col justify-between ${
-                            phrase.is_active === 1 ? 'border-slate-800' : 'border-slate-800/40 opacity-60'
-                          }`}
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-purple-400/20 text-purple-300">
-                                {phrase.category || 'salutations'}
-                              </span>
-                              <span className="text-[10px] font-mono text-slate-500">#{phrase.id} · ordre {phrase.sort_order}</span>
-                            </div>
-
-                            <h4 className="text-lg font-black text-white mt-2">{phrase.text_mg}</h4>
-
-                            {phrase.pronunciation && (
-                              <p className="text-[11px] text-amber-300/80 italic mt-0.5">{phrase.pronunciation}</p>
-                            )}
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-xs">
-                              <div className="bg-slate-900/70 rounded-lg px-2.5 py-2 border border-slate-800">
-                                <span className="text-slate-500 font-bold">FR · </span>
-                                <span className="text-slate-300">{phrase.text_fr || '—'}</span>
-                              </div>
-                              <div className="bg-slate-900/70 rounded-lg px-2.5 py-2 border border-slate-800">
-                                <span className="text-slate-500 font-bold">EN · </span>
-                                <span className="text-slate-300">{phrase.text_en || '—'}</span>
-                              </div>
-                            </div>
-
-                            <div className="mt-3 bg-slate-900 border border-slate-800 rounded-xl p-3">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                <div className="flex items-center space-x-2 text-[11px] font-semibold">
-                                  <Volume2 className={`w-4 h-4 ${hasAudio ? 'text-emerald-400' : 'text-slate-500'}`} />
-                                  <span className={hasAudio ? 'text-emerald-300' : 'text-slate-500'}>
-                                    {hasAudio ? 'Audio MMS disponible' : 'Aucun fichier audio'}
-                                  </span>
-                                </div>
-
-                                <div className="flex flex-wrap items-center justify-end gap-2">
-                                  {hasAudio && (
-                                    <button
-                                      type="button"
-                                      onClick={() => playPhraseAudio(phrase)}
-                                      className="flex items-center space-x-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold"
-                                    >
-                                      <Volume2 className="w-3.5 h-3.5" />
-                                      <span>Écouter</span>
-                                    </button>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleGeneratePhraseAudio(phrase)}
-                                    disabled={phraseBusyId !== null}
-                                    className="flex items-center space-x-1 px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg text-[11px] font-bold"
-                                  >
-                                    {busy ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                      <Sparkles className="w-3.5 h-3.5" />
-                                    )}
-                                    <span>{busy ? 'Génération...' : hasAudio ? 'Régénérer MMS' : 'Générer MMS'}</span>
-                                  </button>
-
-                                  <label
-                                    htmlFor={`phrase-audio-${phrase.id}`}
-                                    className="flex items-center space-x-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold cursor-pointer"
-                                  >
-                                    <Upload className="w-3.5 h-3.5" />
-                                    <span>Importer</span>
-                                  </label>
-                                  <input
-                                    id={`phrase-audio-${phrase.id}`}
-                                    type="file"
-                                    accept="audio/*,.mp3,.wav,.ogg,.m4a,.webm,.aac"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      handleUploadPhraseAudio(phrase, e.target.files?.[0]);
-                                      e.target.value = '';
-                                    }}
-                                  />
-
-                                  {hasAudio && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeletePhraseAudio(phrase)}
-                                      className="p-1.5 text-rose-400 hover:text-rose-300"
-                                      title="Supprimer l’audio"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-xs">
-                            <button
-                              onClick={() => handleTogglePhrase(phrase)}
-                              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-bold ${
-                                phrase.is_active === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              <Power className="w-3.5 h-3.5" />
-                              <span>{phrase.is_active === 1 ? 'Active' : 'Masquée'}</span>
-                            </button>
-
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => handleEditPhrase(phrase)}
-                                className="text-amber-400 hover:text-amber-300 p-1.5"
-                                title="Modifier"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeletePhrase(phrase)}
-                                className="text-rose-400 hover:text-rose-300 p-1.5"
-                                title="Supprimer"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {phrases.length === 0 && (
+                  {phrases.length === 0 ? (
                     <div className="bg-slate-950 border-2 border-dashed border-slate-800 rounded-2xl p-10 text-center text-slate-500 text-sm">
                       Aucune phrase enregistrée. Cliquez sur « Ajouter une phrase » pour commencer.
                     </div>
+                  ) : (
+                    <DndContext
+                      sensors={phraseSensors}
+                      collisionDetection={phraseCollisionDetection}
+                      onDragEnd={handlePhraseDragEnd}
+                    >
+                      <div className="space-y-8">
+                        <div className="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2">
+                          Glissez les phrases par la poignée, ou utilisez les flèches ↑ / ↓, pour les réordonner à l’intérieur de chaque catégorie.
+                        </div>
+                        {phraseGroups.map((group) => (
+                          <section key={group.category}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <h4 className="text-sm font-black uppercase tracking-wider text-purple-300">
+                                {group.label}
+                              </h4>
+                              <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-300">
+                                {group.items.length}
+                              </span>
+                            </div>
+
+                            <SortableContext
+                              items={group.items.map((phrase) => phrase.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <div className="space-y-3">
+                                {group.items.map((phrase, index) => (
+                                  <SortablePhraseCard
+                                    key={phrase.id}
+                                    phrase={phrase}
+                                    categoryLabel={group.label}
+                                    position={index + 1}
+                                    busy={phraseBusyId === phrase.id}
+                                    audioActionsDisabled={phraseBusyId !== null}
+                                    dragDisabled={phraseReorderBusy}
+                                    isFirst={index === 0}
+                                    isLast={index === group.items.length - 1}
+                                    onMoveUp={(item) => handleMovePhrase(item, -1)}
+                                    onMoveDown={(item) => handleMovePhrase(item, 1)}
+                                    onToggle={handleTogglePhrase}
+                                    onEdit={handleEditPhrase}
+                                    onDelete={handleDeletePhrase}
+                                    onPlayAudio={playPhraseAudio}
+                                    onGenerateAudio={handleGeneratePhraseAudio}
+                                    onUploadAudio={handleUploadPhraseAudio}
+                                    onDeleteAudio={handleDeletePhraseAudio}
+                                  />
+                                ))}
+                              </div>
+                            </SortableContext>
+                          </section>
+                        ))}
+                      </div>
+                    </DndContext>
                   )}
                 </div>
               )}
 
-              {/* 3. CARTE & ITINÉRAIRES TAB (With Map Picker & Reset) */}
               {activeTab === 'places' && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -1413,7 +1480,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     )}
                   </div>
 
-                  {/* Extracteur Automatique OpenStreetMap / Google Places */}
                   <div className="bg-gradient-to-r from-blue-950/60 to-slate-900 border border-blue-500/40 rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
                     <div className="flex items-center space-x-3">
                       <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl border border-blue-400/30">
@@ -1457,7 +1523,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                   )}
 
                   {isAddingPlace && (
-                    <form onSubmit={handleSavePlace} className="bg-slate-950 border-2 border-blue-500/50 rounded-2xl p-6 mb-6">
+                    <form ref={placeFormRef} onSubmit={handleSavePlace} className="bg-slate-950 border-2 border-blue-500/50 rounded-2xl p-6 mb-6">
                       <h4 className="font-bold text-blue-400 mb-4">{editingPlace ? `Modifier : ${editingPlace.name}` : 'Nouveau Lieu Touristique'}</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
@@ -1507,7 +1573,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         </div>
                       </div>
 
-                      {/* Descriptions multilingues */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
                           <label className="text-xs text-slate-400 font-bold block mb-1">Description (Français)</label>
@@ -1654,7 +1719,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 3. ÉVÉNEMENTS TAB (No past dates + Map Picker + Edit) */}
               {activeTab === 'events' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
@@ -1687,7 +1751,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                   </div>
 
                   {isAddingEvent && (
-                    <form onSubmit={handleSaveEvent} className="bg-slate-950 border-2 border-emerald-500/50 rounded-2xl p-6 mb-6">
+                    <form ref={eventFormRef} onSubmit={handleSaveEvent} className="bg-slate-950 border-2 border-emerald-500/50 rounded-2xl p-6 mb-6">
                       <h4 className="font-bold text-emerald-400 mb-4">{editingEvent ? 'Modifier l’événement' : 'Nouvel Événement'}</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
@@ -1814,7 +1878,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 4. URGENCES TAB (With Map Picker & Edit) */}
               {activeTab === 'emergency' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
@@ -1845,7 +1908,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                   </div>
 
                   {isAddingEmergency && (
-                    <form onSubmit={handleSaveEmergency} className="bg-slate-950 border-2 border-rose-500/50 rounded-2xl p-6 mb-6">
+                    <form ref={emergencyFormRef} onSubmit={handleSaveEmergency} className="bg-slate-950 border-2 border-rose-500/50 rounded-2xl p-6 mb-6">
                       <h4 className="font-bold text-rose-400 mb-4">{editingEmergency ? 'Modifier le contact d\'urgence' : 'Nouveau Contact'}</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                         <div>
@@ -1910,7 +1973,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 6. STATISTIQUES AVANCÉES TAB */}
               {activeTab === 'stats' && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
@@ -1936,7 +1998,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </div>
                   </div>
 
-                  {/* Primary KPIs */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-slate-950 p-5 rounded-2xl border border-blue-900/50 text-center">
                       <Users className="w-6 h-6 text-blue-400 mx-auto" />
@@ -1966,7 +2027,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </div>
                   </div>
 
-                  {/* Daily Trend Chart (7 derniers jours) */}
                   {stats?.dailyTrend && stats.dailyTrend.length > 0 && (() => {
                     const trend = [...stats.dailyTrend].reverse(); // chronological order
                     const maxCount = Math.max(...trend.map((d) => d.count), 1);
@@ -1982,20 +2042,16 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                             const dateLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
                             return (
                               <div key={idx} className="flex-1 flex flex-col items-center space-y-1 group">
-                                {/* Tooltip */}
                                 <div className="opacity-0 group-hover:opacity-100 transition text-xs text-white font-bold bg-slate-700 px-2 py-1 rounded-lg whitespace-nowrap">
                                   {day.count} visite{day.count > 1 ? 's' : ''}
                                 </div>
-                                {/* Bar */}
                                 <div className="w-full relative" style={{ height: '80px' }}>
                                   <div
                                     className="absolute bottom-0 left-0 right-0 bg-blue-500/80 hover:bg-blue-400 rounded-t-lg transition-all"
                                     style={{ height: `${Math.max(pct, 4)}%` }}
                                   />
                                 </div>
-                                {/* Count label */}
                                 <span className="text-xs font-bold text-blue-300 font-mono">{day.count}</span>
-                                {/* Date label */}
                                 <span className="text-[10px] text-slate-500 text-center leading-tight">{dateLabel}</span>
                               </div>
                             );
@@ -2005,7 +2061,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     );
                   })()}
 
-                  {/* Peak Hours (Affluence) */}
                   <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
                     <h4 className="text-sm uppercase font-bold text-slate-400 tracking-wider mb-4 flex items-center space-x-2">
                       <Clock className="w-4 h-4 text-amber-400" />
@@ -2041,9 +2096,7 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     })()}
                   </div>
 
-                  {/* Top Modules & QR Codes */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Feature bar chart */}
                     <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
                       <h4 className="text-sm uppercase font-bold text-slate-400 tracking-wider mb-4 flex items-center space-x-2">
                         <Layers className="w-4 h-4 text-amber-400" />
@@ -2077,7 +2130,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                       )}
                     </div>
 
-                    {/* Top QR scans */}
                     <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
                       <h4 className="text-sm uppercase font-bold text-slate-400 tracking-wider mb-4 flex items-center space-x-2">
                         <Navigation className="w-4 h-4 text-emerald-400" />
@@ -2106,7 +2158,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </div>
                   </div>
 
-                  {/* Danger zone: clear stats */}
                   <div className="bg-rose-950/30 border border-rose-900/50 rounded-2xl p-5 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-bold text-rose-300">Zone dangereuse — Réinitialiser les statistiques</p>
@@ -2126,10 +2177,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 6. CONFIGURATION DU KIOSQUE & EMPLACEMENT MULTI-VILLES */}
               {activeTab === 'config' && (
                 <div className="space-y-6">
-                  {/* Ville Active Actuelle */}
                   <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 relative overflow-hidden">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div>
@@ -2147,7 +2196,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                           Région : <span className="text-slate-200 font-bold">{kioskConfigData?.active_region || '—'}</span> • Coordonnées GPS : <span className="font-mono text-amber-300">{kioskConfigData?.active_lat ?? '—'}, {kioskConfigData?.active_lng ?? '—'}</span>
                         </p>
 
-                        {/* Boutons de calibration de la position du PC / Borne */}
                         <div className="flex flex-wrap items-center gap-2 mt-3">
                           <button
                             type="button"
@@ -2176,7 +2224,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                         </div>
                       </div>
 
-                      {/* Données actives en ce moment pour cette ville */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 text-center">
                           <span className="text-xl font-black text-amber-400">{places.length}</span>
@@ -2194,7 +2241,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </div>
                   </div>
 
-                  {/* Messages de statut */}
                   {switchSuccessMsg && (
                     <div className="p-4 bg-emerald-950/80 border border-emerald-500/50 rounded-2xl text-emerald-300 text-sm flex items-center space-x-3">
                       <Check className="w-5 h-5 flex-shrink-0 text-emerald-400" />
@@ -2209,7 +2255,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </div>
                   )}
 
-                  {/* Villes mémorisées dans la base (Historique réversible sans perte) */}
                   <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6">
                     <div className="mb-4">
                       <h3 className="text-lg font-bold text-white flex items-center space-x-2">
@@ -2312,7 +2357,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </div>
                   </div>
 
-                  {/* Rechercher et Déplacer vers une Nouvelle Ville */}
                   <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6">
                     <div className="mb-4">
                       <h3 className="text-lg font-bold text-white flex items-center space-x-2">
@@ -2351,7 +2395,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                       </button>
                     </form>
 
-                    {/* Résultats de recherche avec désambiguïsation des homonymes */}
                     {citySearchResults.length > 0 && (
                       <div className="space-y-3">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -2406,7 +2449,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     )}
                   </div>
 
-                  {/* Confirmation Modal avant basculement */}
                   {confirmSwitchTarget && (
                     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-6">
                       <div className="bg-slate-900 border-2 border-amber-500 rounded-3xl p-6 max-w-lg w-full text-center relative shadow-2xl animate-fade-in">
@@ -2458,7 +2500,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </div>
                   )}
 
-                  {/* Modal confirmation suppression d'une ville */}
                   {cityToDelete && (
                     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
                       <div className="bg-slate-900 border-2 border-rose-500 rounded-3xl p-6 max-w-lg w-full text-center relative shadow-2xl">
@@ -2512,10 +2553,8 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                 </div>
               )}
 
-              {/* 7. COMPTES & SÉCURITÉ TAB */}
               {activeTab === 'users' && (
                 <div className="space-y-6">
-                  {/* Change My Profile */}
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
                     <div className="flex items-center space-x-2 text-amber-400 font-bold mb-4">
                       <KeyRound className="w-5 h-5" />
@@ -2565,7 +2604,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </form>
                   </div>
 
-                  {/* Create New Admin Account */}
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
                     <div className="flex items-center space-x-2 text-blue-400 font-bold mb-4">
                       <UserPlus className="w-5 h-5" />
@@ -2617,7 +2655,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
                     </form>
                   </div>
 
-                  {/* Accounts List */}
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
                     <h4 className="font-bold text-white mb-4">Comptes existants ({usersList.length})</h4>
                     <div className="space-y-2">
@@ -2655,7 +2692,6 @@ export default function BackOfficeModal({ isOpen, onClose, onAdsUpdated, onCityC
           </div>
         )}
 
-        {/* Interactive Location Picker Modal with OpenStreetMap */}
         <LocationPickerModal
           isOpen={isMapPickerOpen}
           onClose={() => setIsMapPickerOpen(false)}

@@ -17,7 +17,6 @@
 const path = require('path');
 const fs = require('fs');
 
-// Évite de réappliquer le seed des lieux pendant une simple génération audio.
 process.env.KIOSK_SKIP_PLACES_SEED = '1';
 const db = require('../src/db/database');
 
@@ -32,7 +31,6 @@ if (!fs.existsSync(audioDir)) {
 function encodeWav(float32Audio, sampleRate) {
   const numSamples = float32Audio.length;
 
-  // Normalisation douce pour une écoute confortable sur le kiosque.
   let peak = 0;
   for (let i = 0; i < numSamples; i += 1) {
     const value = Math.abs(float32Audio[i]);
